@@ -1,4 +1,5 @@
-package openlibrary
+// Package booksapi looks up book metadata by ISBN via the Google Books API.
+package booksapi
 
 import (
 	"context"

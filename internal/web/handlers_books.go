@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/simon/dewey/internal/openlibrary"
+	"github.com/simon/dewey/internal/booksapi"
 	"github.com/simon/dewey/internal/store"
 )
 
@@ -112,7 +112,7 @@ func (s *Server) handleBooksLookup(w http.ResponseWriter, r *http.Request) {
 
 	// New book — fetch metadata from Google Books
 	apiKey, _ := s.store.GetSetting(r.Context(), "google_books_key")
-	info, err := openlibrary.Lookup(r.Context(), d.ISBN, apiKey)
+	info, err := booksapi.Lookup(r.Context(), d.ISBN, apiKey)
 	if err != nil {
 		d.LookupError = err.Error()
 		render(w, "books_new", d)
