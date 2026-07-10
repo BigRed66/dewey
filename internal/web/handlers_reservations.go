@@ -48,9 +48,10 @@ func (s *Server) handleReservationsCreate(w http.ResponseWriter, r *http.Request
 	}
 
 	if _, err := s.store.CreateReservation(r.Context(), bookID, studentID); err != nil {
-		msg := "Vormerkung fehlgeschlagen: " + err.Error()
-		if errors.Is(err, store.ErrReservationExists) {
-			msg = "Dieser Schüler hat das Buch bereits vorgemerkt."
+		msg := "Dieser Schüler hat das Buch bereits vorgemerkt."
+		if !errors.Is(err, store.ErrReservationExists) {
+			_, friendly := s.friendlyError(r, err)
+			msg = "Vormerkung fehlgeschlagen: " + friendly
 		}
 		redirectWithMessage(w, r, redirect, false, msg)
 		return
@@ -71,7 +72,8 @@ func (s *Server) handleReservationsCancel(w http.ResponseWriter, r *http.Request
 	redirect := redirectTarget(r, "/loans")
 
 	if err := s.store.CancelReservation(r.Context(), id); err != nil {
-		redirectWithMessage(w, r, redirect, false, "Vormerkung konnte nicht storniert werden: "+err.Error())
+		_, msg := s.friendlyError(r, err)
+		redirectWithMessage(w, r, redirect, false, "Vormerkung konnte nicht storniert werden: "+msg)
 		return
 	}
 	redirectWithMessage(w, r, redirect, true, "Vormerkung storniert.")

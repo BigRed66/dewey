@@ -25,7 +25,7 @@ type classRow struct {
 func (s *Server) handleClassesList(w http.ResponseWriter, r *http.Request) {
 	classes, err := s.store.ListClasses(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, err)
 		return
 	}
 	rows := make([]classRow, len(classes))
@@ -63,7 +63,8 @@ func (s *Server) handleClassesUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.store.UpdateClass(r.Context(), id, year, label, teacher); err != nil {
-		s.classesWithError(w, r, "Klasse konnte nicht aktualisiert werden: "+err.Error())
+		_, msg := s.friendlyError(r, err)
+		s.classesWithError(w, r, "Klasse konnte nicht aktualisiert werden: "+msg)
 		return
 	}
 	http.Redirect(w, r, "/classes", http.StatusSeeOther)
@@ -80,7 +81,8 @@ func (s *Server) handleClassesDelete(w http.ResponseWriter, r *http.Request) {
 			s.classesWithError(w, r, "Klasse konnte nicht gelöscht werden: Schüler haben noch ausgeliehene Bücher.")
 			return
 		}
-		s.classesWithError(w, r, "Klasse konnte nicht gelöscht werden: "+err.Error())
+		_, msg := s.friendlyError(r, err)
+		s.classesWithError(w, r, "Klasse konnte nicht gelöscht werden: "+msg)
 		return
 	}
 	http.Redirect(w, r, "/classes", http.StatusSeeOther)
@@ -105,7 +107,8 @@ func (s *Server) handleClassesCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := s.store.CreateClass(r.Context(), year, label, teacher); err != nil {
-		s.classesWithError(w, r, "Klasse konnte nicht erstellt werden: "+err.Error())
+		_, msg := s.friendlyError(r, err)
+		s.classesWithError(w, r, "Klasse konnte nicht erstellt werden: "+msg)
 		return
 	}
 	http.Redirect(w, r, "/classes", http.StatusSeeOther)

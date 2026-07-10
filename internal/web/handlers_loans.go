@@ -42,7 +42,7 @@ type checkoutData struct {
 func (s *Server) handleLoansList(w http.ResponseWriter, r *http.Request) {
 	d, err := s.buildLoansData(r, r.URL.Query().Get("success"), r.URL.Query().Get("error"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, err)
 		return
 	}
 	render(w, "loans", d)
@@ -51,7 +51,7 @@ func (s *Server) handleLoansList(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleLoansCheckoutForm(w http.ResponseWriter, r *http.Request) {
 	d, err := s.checkoutFormData(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, err)
 		return
 	}
 	d.NFCTagID = r.URL.Query().Get("nfc_tag_id")
@@ -95,7 +95,8 @@ func (s *Server) handleLoansCheckout(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, sql.ErrNoRows) {
 			d.Error = "Kein Buch mit diesem Tag gefunden."
 		} else {
-			d.Error = "Fehler: " + err.Error()
+			_, msg := s.friendlyError(r, err)
+			d.Error = "Fehler: " + msg
 		}
 		render(w, "loans_checkout", d)
 		return
@@ -113,11 +114,12 @@ func (s *Server) handleLoansCheckout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := s.store.Checkout(r.Context(), studentID, copy.ID, dueAt); err != nil {
+		_, msg := s.friendlyError(r, err)
 		d, _ := s.checkoutFormData(r)
 		d.StudentID = studentID
 		d.NFCTagID = nfcTagID
 		d.DefaultDueDate = dueDateStr
-		d.Error = "Ausleihe fehlgeschlagen: " + err.Error()
+		d.Error = "Ausleihe fehlgeschlagen: " + msg
 		render(w, "loans_checkout", d)
 		return
 	}
@@ -142,9 +144,12 @@ func (s *Server) handleLoansReturn(w http.ResponseWriter, r *http.Request) {
 
 	loan, err := s.store.Return(r.Context(), nfcTagID)
 	if err != nil {
-		msg := "Fehler: " + err.Error()
+		var msg string
 		if errors.Is(err, sql.ErrNoRows) {
 			msg = "Kein offener Ausleihvorgang für dieses Exemplar gefunden."
+		} else {
+			_, friendly := s.friendlyError(r, err)
+			msg = "Fehler: " + friendly
 		}
 		if wantsJSON {
 			w.Header().Set("Content-Type", "application/json")
@@ -168,7 +173,7 @@ func (s *Server) handleLoansReturn(w http.ResponseWriter, r *http.Request) {
 func (s *Server) loansWithMessage(w http.ResponseWriter, r *http.Request, success, errMsg string) {
 	d, err := s.buildLoansData(r, success, errMsg)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, err)
 		return
 	}
 	if errMsg != "" {
@@ -245,7 +250,8 @@ func (s *Server) handleLoanProlong(w http.ResponseWriter, r *http.Request) {
 
 	newDue, err := s.store.ProlongLoan(r.Context(), id, dueAt)
 	if err != nil {
-		msg := "Verlängerung fehlgeschlagen: " + err.Error()
+		_, friendly := s.friendlyError(r, err)
+		msg := "Verlängerung fehlgeschlagen: " + friendly
 		switch {
 		case errors.Is(err, store.ErrLoanReserved):
 			msg = "Verlängerung nicht möglich: Ein anderer Schüler hat dieses Buch vorgemerkt."

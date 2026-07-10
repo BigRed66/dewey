@@ -53,7 +53,7 @@ func emptyNewData() booksNewData {
 func (s *Server) handleBooksList(w http.ResponseWriter, r *http.Request) {
 	books, err := s.store.ListBooks(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, err)
 		return
 	}
 	render(w, "books", booksData{Books: books})
@@ -90,7 +90,8 @@ func (s *Server) handleBooksLookup(w http.ResponseWriter, r *http.Request) {
 	// Check if this ISBN already exists in the database
 	existing, err := s.store.GetBookByISBN(r.Context(), d.ISBN)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		d.LookupError = "Datenbankfehler: " + err.Error()
+		_, msg := s.friendlyError(r, err)
+		d.LookupError = "Datenbankfehler: " + msg
 		render(w, "books_new", d)
 		return
 	}
@@ -162,30 +163,30 @@ func (s *Server) handleBookDetail(w http.ResponseWriter, r *http.Request) {
 
 	rawCopies, err := s.store.ListCopiesByBook(r.Context(), id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, err)
 		return
 	}
 
 	loans, err := s.store.AllLoansByBook(r.Context(), id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, err)
 		return
 	}
 
 	reservations, err := s.store.ActiveReservationsByBook(r.Context(), id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, err)
 		return
 	}
 
 	classes, err := s.store.ListClasses(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, err)
 		return
 	}
 	students, err := s.store.ListStudents(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, err)
 		return
 	}
 
@@ -269,11 +270,11 @@ func (s *Server) handleBooksUpdate(w http.ResponseWriter, r *http.Request) {
 		ReadingLevel:  r.FormValue("reading_level"),
 	}
 	if err := s.store.UpdateBook(r.Context(), b); err != nil {
-		http.Error(w, "Buch konnte nicht aktualisiert werden: "+err.Error(), http.StatusInternalServerError)
+		s.writeErrorPrefixed(w, r, "Buch konnte nicht aktualisiert werden", err)
 		return
 	}
 	if err := s.store.SetBookPosition(r.Context(), id, r.FormValue("shelf_row"), r.FormValue("shelf_column")); err != nil {
-		http.Error(w, "Buch aktualisiert, aber Position konnte nicht gespeichert werden: "+err.Error(), http.StatusInternalServerError)
+		s.writeErrorPrefixed(w, r, "Buch aktualisiert, aber Position konnte nicht gespeichert werden", err)
 		return
 	}
 	http.Redirect(w, r, "/books/"+strconv.FormatInt(id, 10), http.StatusSeeOther)
@@ -298,7 +299,7 @@ func (s *Server) handleCopyDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.store.DeleteCopy(r.Context(), copyID); err != nil {
-		http.Error(w, "Exemplar konnte nicht entfernt werden: "+err.Error(), http.StatusInternalServerError)
+		s.writeErrorPrefixed(w, r, "Exemplar konnte nicht entfernt werden", err)
 		return
 	}
 
@@ -323,7 +324,7 @@ func (s *Server) handleBooksDelete(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Buch konnte nicht gelöscht werden: Es sind noch Exemplare ausgeliehen.", http.StatusConflict)
 			return
 		}
-		http.Error(w, "Buch konnte nicht gelöscht werden: "+err.Error(), http.StatusInternalServerError)
+		s.writeErrorPrefixed(w, r, "Buch konnte nicht gelöscht werden", err)
 		return
 	}
 	http.Redirect(w, r, "/books", http.StatusSeeOther)
@@ -353,7 +354,8 @@ func (s *Server) handleBooksCreate(w http.ResponseWriter, r *http.Request) {
 			d.Title = book.Title
 			d.Author = book.Author
 			d.CoverURL = book.CoverURL
-			d.SaveError = "Exemplar konnte nicht hinzugefügt werden: " + err.Error()
+			_, msg := s.friendlyError(r, err)
+			d.SaveError = "Exemplar konnte nicht hinzugefügt werden: " + msg
 			render(w, "books_new", d)
 			return
 		}
@@ -387,29 +389,31 @@ func (s *Server) handleBooksCreate(w http.ResponseWriter, r *http.Request) {
 
 	created, err := s.store.CreateBook(r.Context(), b)
 	if err != nil {
+		_, msg := s.friendlyError(r, err)
 		d := booksNewData{
 			NFCTagID: nfcTagID, ISBN: b.ISBN, Title: b.Title,
 			Author: b.Author, Publisher: b.Publisher, PublishedYear: b.PublishedYear,
 			CoverURL: b.CoverURL, Category: b.Category, ReadingLevel: b.ReadingLevel,
 			ShelfRow: shelfRow, ShelfColumn: shelfColumn,
 			Categories: categories, ReadingLevels: readingLevels,
-			SaveError: "Buch konnte nicht gespeichert werden: " + err.Error(),
+			SaveError: "Buch konnte nicht gespeichert werden: " + msg,
 		}
 		render(w, "books_new", d)
 		return
 	}
 
 	if _, err := s.store.CreateCopy(r.Context(), created.ID, nfcTagID); err != nil {
+		_, msg := s.friendlyError(r, err)
 		d := emptyNewData()
 		d.NFCTagID = nfcTagID
-		d.SaveError = "Buch gespeichert, aber Exemplar konnte nicht hinzugefügt werden: " + err.Error()
+		d.SaveError = "Buch gespeichert, aber Exemplar konnte nicht hinzugefügt werden: " + msg
 		render(w, "books_new", d)
 		return
 	}
 
 	if shelfRow != "" || shelfColumn != "" {
 		if err := s.store.SetBookPosition(r.Context(), created.ID, shelfRow, shelfColumn); err != nil {
-			http.Error(w, "Buch gespeichert, aber Position konnte nicht gespeichert werden: "+err.Error(), http.StatusInternalServerError)
+			s.writeErrorPrefixed(w, r, "Buch gespeichert, aber Position konnte nicht gespeichert werden", err)
 			return
 		}
 	}

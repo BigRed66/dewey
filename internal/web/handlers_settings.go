@@ -73,7 +73,7 @@ func (s *Server) handleSettingsNFCSave(w http.ResponseWriter, r *http.Request) {
 	port := strings.TrimSpace(r.FormValue("port"))
 
 	if err := s.store.SetSetting(r.Context(), "nfc_port", port); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, err)
 		return
 	}
 
@@ -139,7 +139,7 @@ func (s *Server) handleSettingsAPISave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.store.SetSetting(r.Context(), "google_books_key", key); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, err)
 		return
 	}
 

@@ -15,7 +15,7 @@ func (s *Server) handleNFCScan(w http.ResponseWriter, r *http.Request) {
 
 	result, err := s.store.ScanByNFC(r.Context(), uid)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, err)
 		return
 	}
 

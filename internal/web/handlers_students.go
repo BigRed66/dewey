@@ -23,7 +23,7 @@ type studentsData struct {
 func (s *Server) handleStudentsList(w http.ResponseWriter, r *http.Request) {
 	classes, err := s.store.ListClasses(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, err)
 		return
 	}
 
@@ -39,7 +39,7 @@ func (s *Server) handleStudentsList(w http.ResponseWriter, r *http.Request) {
 		students, err = s.store.ListStudents(r.Context())
 	}
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, err)
 		return
 	}
 
@@ -79,19 +79,19 @@ func (s *Server) handleStudentDetail(w http.ResponseWriter, r *http.Request) {
 
 	loans, err := s.store.AllLoansByStudent(r.Context(), id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, err)
 		return
 	}
 
 	reservations, err := s.store.ActiveReservationsByStudent(r.Context(), id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, err)
 		return
 	}
 
 	books, err := s.store.ListBooks(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, err)
 		return
 	}
 
@@ -161,7 +161,8 @@ func (s *Server) handleStudentsUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.store.UpdateStudent(r.Context(), id, name, classID); err != nil {
-		s.studentsWithError(w, r, "Schüler konnte nicht aktualisiert werden: "+err.Error())
+		_, msg := s.friendlyError(r, err)
+		s.studentsWithError(w, r, "Schüler konnte nicht aktualisiert werden: "+msg)
 		return
 	}
 	http.Redirect(w, r, "/students", http.StatusSeeOther)
@@ -178,7 +179,8 @@ func (s *Server) handleStudentsDelete(w http.ResponseWriter, r *http.Request) {
 			s.studentsWithError(w, r, "Schüler konnte nicht gelöscht werden: Es sind noch Bücher ausgeliehen.")
 			return
 		}
-		s.studentsWithError(w, r, "Schüler konnte nicht gelöscht werden: "+err.Error())
+		_, msg := s.friendlyError(r, err)
+		s.studentsWithError(w, r, "Schüler konnte nicht gelöscht werden: "+msg)
 		return
 	}
 	http.Redirect(w, r, "/students", http.StatusSeeOther)
@@ -198,7 +200,8 @@ func (s *Server) handleStudentsCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := s.store.CreateStudent(r.Context(), name, classID); err != nil {
-		s.studentsWithError(w, r, "Schüler konnte nicht erstellt werden: "+err.Error())
+		_, msg := s.friendlyError(r, err)
+		s.studentsWithError(w, r, "Schüler konnte nicht erstellt werden: "+msg)
 		return
 	}
 	http.Redirect(w, r, "/students", http.StatusSeeOther)

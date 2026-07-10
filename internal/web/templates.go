@@ -32,6 +32,9 @@ func render(w http.ResponseWriter, page string, data any) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	// Template execution errors are a developer bug (bad template, wrong data
+	// shape), not a request-scoped domain error, so there's no *Server here
+	// to log through — keep the plain http.Error.
 	if err := t.ExecuteTemplate(w, "layout", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
