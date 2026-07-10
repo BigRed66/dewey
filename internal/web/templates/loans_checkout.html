@@ -1,0 +1,65 @@
+{{define "title"}}Neue Ausleihe{{end}}
+{{define "content"}}
+<div style="margin-bottom:28px;">
+  <h1>Neue Ausleihe</h1>
+  <p class="subtitle">Tag wurde gelesen — Schüler wählen und Rückgabe bestätigen.</p>
+</div>
+
+{{if .Error}}<div class="alert-error">{{.Error}}</div>{{end}}
+
+<div class="card">
+  <div class="card-body">
+    {{if .NFCTagID}}
+    <div style="display:flex; align-items:center; gap:14px; padding:14px 18px; margin-bottom:24px; border-radius:12px; background:#E7EFE4; border:1px solid #D4E2CF;">
+      <span style="width:34px; height:34px; border-radius:9px; background:#3A5A40; display:inline-flex; align-items:center; justify-content:center; color:#FBF8F2; font-size:18px; flex-shrink:0;">◈</span>
+      <div>
+        <div style="font-weight:700; font-size:15.5px; color:#2F4A34;">Tag erkannt</div>
+        <div style="font-family:'DM Mono',ui-monospace,monospace; font-size:13px; color:#5C7257; margin-top:2px;">{{.NFCTagID}}</div>
+      </div>
+    </div>
+    {{end}}
+
+    <form method="POST" action="/loans/checkout" style="display:contents;">
+      {{if .NFCTagID}}
+      <input type="hidden" name="nfc_tag_id" value="{{.NFCTagID}}">
+      {{end}}
+
+      <div style="display:grid; grid-template-columns:1.4fr 1fr; gap:20px; align-items:end; max-width:620px; margin-bottom:24px;">
+        {{if not .NFCTagID}}
+        <div class="field" style="grid-column:1/-1;">
+          <label class="field-label" for="nfc_tag_id">NFC-Tag des Buchs</label>
+          <input id="nfc_tag_id" name="nfc_tag_id" type="text"
+                 placeholder="Tag scannen oder UUID eingeben"
+                 style="font-family:'DM Mono',ui-monospace,monospace;" required>
+        </div>
+        {{end}}
+        <div class="field">
+          <label class="field-label" for="student_id">Schüler</label>
+          <select id="student_id" name="student_id" required>
+            <option value="">— Schüler wählen —</option>
+            {{range .Classes}}
+            {{$class := .}}
+            <optgroup label="Klasse {{.Year}}{{.Label}} — {{.Teacher}}">
+              {{range $.StudentsByClass}}
+              {{if eq .ClassID $class.ID}}
+              <option value="{{.ID}}" {{if eq $.StudentID .ID}}selected{{end}}>{{.Name}}</option>
+              {{end}}
+              {{end}}
+            </optgroup>
+            {{end}}
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label" for="due_date">Rückgabe bis</label>
+          <input id="due_date" name="due_date" type="date" value="{{.DefaultDueDate}}" required>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:16px;">
+        <button type="submit" class="btn btn-primary">Ausleihen</button>
+        <a href="/loans" class="btn-link">Abbrechen</a>
+      </div>
+    </form>
+  </div>
+</div>
+{{end}}

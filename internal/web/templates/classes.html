@@ -1,0 +1,96 @@
+{{define "title"}}Klassen{{end}}
+{{define "content"}}
+<div style="margin-bottom:28px;">
+  <h1>Klassen</h1>
+  <p class="subtitle">{{len .Classes}} Klassen angelegt</p>
+</div>
+
+{{if .Error}}<div class="alert-error">{{.Error}}</div>{{end}}
+
+<div class="card">
+  <div class="tbl-head" style="grid-template-columns:1.4fr 1fr 1.6fr 0.95fr;">
+    <span>Jahrgang</span><span>Gruppe</span><span>Lehrkraft</span><span style="text-align:right;">Aktionen</span>
+  </div>
+  {{range .Classes}}
+  <div class="tbl-row" style="grid-template-columns:1.4fr 1fr 1.6fr 0.95fr;">
+    <span style="font-weight:700;">Klasse {{.Year}}</span>
+    <span>{{.Label}}</span>
+    <span class="tbl-muted">{{.Teacher}}</span>
+    <span class="row-menu" onclick="event.stopPropagation()">
+      <button class="row-menu-btn" onclick="toggleRowMenu(this,event)">⋯</button>
+      <div class="row-menu-drop">
+        <a href="/classes?edit={{.ID}}" class="mitem-edit">Bearbeiten</a>
+        <form method="POST" action="/classes/{{.ID}}/delete" onsubmit="return confirmDelete(this, 'Alle zugehörigen Schüler werden ebenfalls gelöscht.', 'Klasse löschen?')">
+          <button type="submit" class="mitem-del">Löschen</button>
+        </form>
+      </div>
+    </span>
+  </div>
+  {{else}}
+  <div class="tbl-empty">Noch keine Klassen vorhanden.</div>
+  {{end}}
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <h2 style="margin-bottom:18px;">Klasse hinzufügen</h2>
+    <form method="POST" action="/classes" style="display:contents;">
+      <div style="display:grid; grid-template-columns:1fr 1fr 1.4fr auto; gap:18px; align-items:end;">
+        <div class="field">
+          <label class="field-label" for="year">Jahrgang</label>
+          <select id="year" name="year" required>
+            <option value="">—</option>
+            <option value="1">Klasse 1</option>
+            <option value="2">Klasse 2</option>
+            <option value="3">Klasse 3</option>
+            <option value="4">Klasse 4</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label" for="label">Gruppe</label>
+          <input id="label" name="label" type="text" placeholder="z.B. A" maxlength="10" required>
+        </div>
+        <div class="field">
+          <label class="field-label" for="teacher">Lehrkraft</label>
+          <input id="teacher" name="teacher" type="text" placeholder="z.B. Fr. Müller" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Hinzufügen</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{{if .EditClass}}
+<div style="display:flex; position:fixed; inset:0; background:rgba(42,39,34,.45); z-index:1000; align-items:center; justify-content:center;">
+  <div style="width:480px; max-width:calc(100vw - 2rem); background:#FBF8F2; border-radius:18px; box-shadow:0 30px 70px -20px rgba(42,39,34,.5); border:1px solid #ECE4D6; padding:28px; position:relative;">
+    <a href="/classes" style="position:absolute; top:18px; right:20px; font-size:20px; color:#B3A998; text-decoration:none; line-height:1;">✕</a>
+    <h3 style="margin:0 0 20px; font-family:'Lora',serif; font-weight:600; font-size:23px; color:#2A2722;">Klasse bearbeiten</h3>
+    <form method="POST" action="/classes/{{.EditClass.ID}}">
+      <div class="field" style="margin-bottom:16px;">
+        <label class="field-label" for="edit-year">Jahrgang</label>
+        <select id="edit-year" name="year" required>
+          <option value="1" {{if eq .EditClass.Year 1}}selected{{end}}>Klasse 1</option>
+          <option value="2" {{if eq .EditClass.Year 2}}selected{{end}}>Klasse 2</option>
+          <option value="3" {{if eq .EditClass.Year 3}}selected{{end}}>Klasse 3</option>
+          <option value="4" {{if eq .EditClass.Year 4}}selected{{end}}>Klasse 4</option>
+        </select>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1.4fr; gap:16px; margin-bottom:24px;">
+        <div class="field">
+          <label class="field-label" for="edit-label">Gruppe</label>
+          <input id="edit-label" name="label" type="text" value="{{.EditClass.Label}}" maxlength="10" required>
+        </div>
+        <div class="field">
+          <label class="field-label" for="edit-teacher">Lehrkraft</label>
+          <input id="edit-teacher" name="teacher" type="text" value="{{.EditClass.Teacher}}" required>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button type="submit" class="btn btn-primary">Speichern</button>
+        <a href="/classes" class="btn btn-secondary">Abbrechen</a>
+      </div>
+    </form>
+  </div>
+</div>
+{{end}}
+{{end}}

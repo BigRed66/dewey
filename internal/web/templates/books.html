@@ -1,0 +1,66 @@
+{{define "title"}}Bücher{{end}}
+{{define "content"}}
+<div class="page-header">
+  <div>
+    <h1>Bücher</h1>
+    <p class="subtitle">{{len .Books}} Titel im Bestand</p>
+  </div>
+  <a href="/books/new" class="btn btn-primary"><span>＋</span> Buch hinzufügen</a>
+</div>
+
+<div class="search-bar">
+  <span class="search-icon">⌕</span>
+  <input id="books-search" type="text" placeholder="Suche nach Titel, Autor, Kategorie…">
+</div>
+
+<div class="card">
+  <div class="tbl-head" style="grid-template-columns:2fr 1.5fr 1.2fr 1.1fr 1.5fr 0.95fr;">
+    <span>Titel</span><span>Autor</span><span>Kategorie</span><span>Lesestufe</span><span>Exemplare</span><span style="text-align:right;">Aktionen</span>
+  </div>
+  <div id="books-body">
+    {{range .Books}}
+    <div class="tbl-row" style="grid-template-columns:2fr 1.5fr 1.2fr 1.1fr 1.5fr 0.95fr; cursor:pointer;" onclick="location.href='/books/{{.ID}}'">
+      <span style="font-weight:700;">{{.Title}}</span>
+      <span class="tbl-muted">{{.Author}}</span>
+      <span>{{.Category}}</span>
+      <span class="tbl-muted">{{.ReadingLevel}}</span>
+      <span class="avail">
+        {{if eq .OnLoanCount .CopyCount}}
+        <span class="avail-dot red"></span>
+        <span style="color:#B0492E;">0 verfügbar</span>
+        <span style="color:#A89C8A;"> · {{.CopyCount}} gesamt</span>
+        {{else}}
+        <span class="avail-dot green"></span>
+        {{with (sub .CopyCount .OnLoanCount)}}{{.}}{{end}} verfügbar
+        <span style="color:#A89C8A;"> · {{.CopyCount}} gesamt</span>
+        {{end}}
+      </span>
+      <span class="row-menu" onclick="event.stopPropagation()">
+        <button class="row-menu-btn" onclick="toggleRowMenu(this,event)">⋯</button>
+        <div class="row-menu-drop">
+          <a href="/books/{{.ID}}?edit=true" class="mitem-edit">Bearbeiten</a>
+          <form method="POST" action="/books/{{.ID}}/delete" onsubmit="return confirmDelete(this, 'Buch «{{.Title}}» wird endgültig gelöscht.', 'Buch löschen?')">
+            <button type="submit" class="mitem-del">Löschen</button>
+          </form>
+        </div>
+      </span>
+    </div>
+    {{else}}
+    <div class="tbl-empty">Noch keine Bücher vorhanden.</div>
+    {{end}}
+  </div>
+</div>
+
+<script>
+(function () {
+  var input = document.getElementById('books-search');
+  var rows  = document.querySelectorAll('#books-body .tbl-row');
+  input.addEventListener('input', function () {
+    var q = this.value.toLowerCase();
+    rows.forEach(function (row) {
+      row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+}());
+</script>
+{{end}}

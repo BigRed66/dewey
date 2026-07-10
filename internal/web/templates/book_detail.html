@@ -1,0 +1,428 @@
+{{define "title"}}{{.Book.Title}}{{end}}
+{{define "content"}}
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+  <a href="/books" style="font-size:14px; color:#3A5A40; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px;">← Bücher</a>
+  <div style="display:flex; align-items:center; gap:10px;">
+    <button type="button" class="btn btn-secondary" style="font-size:14px; padding:9px 18px;" onclick="document.getElementById('reserve-overlay').style.display='flex'">Vormerken</button>
+    <a href="/books/{{.Book.ID}}?edit=true" class="btn btn-secondary" style="font-size:14px; padding:9px 18px;">Bearbeiten</a>
+    <form method="POST" action="/books/{{.Book.ID}}/delete" onsubmit="return confirmDelete(this, 'Buch «{{.Book.Title}}» wird endgültig gelöscht. Alle Exemplare und der Ausleih-Verlauf werden ebenfalls gelöscht.', 'Buch löschen?')">
+      <button type="submit" class="btn btn-secondary" style="color:#B0492E; border-color:#E9CFC6; font-size:14px; padding:9px 18px;">Löschen</button>
+    </form>
+  </div>
+</div>
+
+{{if .Error}}<div class="alert-error">{{.Error}}</div>{{end}}
+{{if .Success}}<div class="alert-success">{{.Success}}</div>{{end}}
+
+<div style="display:flex; align-items:flex-start; gap:22px; margin-bottom:32px;">
+  {{if .Book.CoverURL}}
+  <img src="{{.Book.CoverURL}}" alt="Cover" style="height:128px; width:auto; border-radius:10px; flex-shrink:0; box-shadow:0 4px 14px rgba(0,0,0,.12);">
+  {{end}}
+  <div>
+    <h1 style="margin-bottom:6px;">{{.Book.Title}}</h1>
+    {{if .Book.Author}}<p class="subtitle" style="margin-bottom:14px;">{{.Book.Author}}</p>{{end}}
+    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+      {{if .Book.Category}}<span class="pill pill-gray">{{.Book.Category}}</span>{{end}}
+      {{if .Book.ReadingLevel}}<span class="pill pill-gray">{{.Book.ReadingLevel}}</span>{{end}}
+      {{if eq .OnLoanCount .CopyCount}}
+      <span class="pill pill-red">0 verfügbar · {{.CopyCount}} gesamt</span>
+      {{else}}
+      <span class="pill pill-green">{{with (sub .CopyCount .OnLoanCount)}}{{.}}{{end}} verfügbar · {{.CopyCount}} gesamt</span>
+      {{end}}
+    </div>
+  </div>
+</div>
+
+<div style="display:grid; grid-template-columns:300px 1fr; gap:24px; align-items:start;">
+
+  <div>
+    <div class="card" style="margin-bottom:0;">
+      <div class="card-body">
+        <h2 style="margin-bottom:18px;">Buchdaten</h2>
+        <div style="display:flex; flex-direction:column; gap:13px;">
+          {{if .Book.Publisher}}
+          <div style="display:flex; flex-direction:column; gap:3px;">
+            <span style="font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:#A89C8A; font-weight:600;">Verlag</span>
+            <span style="font-size:14.5px; color:#2A2722;">{{.Book.Publisher}}</span>
+          </div>
+          {{end}}
+          {{if .Book.PublishedYear}}
+          <div style="display:flex; flex-direction:column; gap:3px;">
+            <span style="font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:#A89C8A; font-weight:600;">Jahr</span>
+            <span style="font-size:14.5px; color:#2A2722;">{{.Book.PublishedYear}}</span>
+          </div>
+          {{end}}
+          {{if .Book.ISBN}}
+          <div style="display:flex; flex-direction:column; gap:3px;">
+            <span style="font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:#A89C8A; font-weight:600;">ISBN</span>
+            <span style="font-size:13.5px; color:#2A2722; font-family:'DM Mono',ui-monospace,monospace;">{{.Book.ISBN}}</span>
+          </div>
+          {{end}}
+          {{if or .Book.ShelfRow .Book.ShelfColumn}}
+          <div style="display:flex; flex-direction:column; gap:3px;">
+            <span style="font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:#A89C8A; font-weight:600;">Position</span>
+            <span style="font-size:14.5px; color:#2A2722;">
+              {{if .Book.ShelfRow}}Reihe {{.Book.ShelfRow}}{{end}}
+              {{if and .Book.ShelfRow .Book.ShelfColumn}}·{{end}}
+              {{if .Book.ShelfColumn}}Spalte {{.Book.ShelfColumn}}{{end}}
+            </span>
+          </div>
+          {{end}}
+        </div>
+
+        {{if .Copies}}
+        <div style="margin-top:22px; padding-top:18px; border-top:1px solid #F1EADD;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+            <div style="font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:#A89C8A; font-weight:600;">NFC-Tags ({{len .Copies}} Exemplar{{if gt (len .Copies) 1}}e{{end}})</div>
+            <button onclick="openCopyRemoveModal()" style="background:none; border:none; cursor:pointer; font-family:'Karla',sans-serif; font-size:12.5px; color:#B0492E; font-weight:600; padding:0;">Exemplar entfernen</button>
+          </div>
+          {{range .Copies}}
+          <div style="display:flex; align-items:center; justify-content:space-between; font-family:'DM Mono',ui-monospace,monospace; font-size:12px; color:#5A4D3E; padding:6px 11px; background:#F3EFE8; border-radius:7px; margin-bottom:6px;">
+            <span>{{.NFCTagID}}</span>
+            {{if .OnLoan}}<span style="font-family:'Karla',sans-serif; font-size:11px; color:#B0492E; font-weight:600; font-style:normal;">ausgeliehen</span>{{end}}
+          </div>
+          {{end}}
+        </div>
+        {{end}}
+
+        {{if .Reservations}}
+        <div style="margin-top:22px; padding-top:18px; border-top:1px solid #F1EADD;">
+          <div style="font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:#A89C8A; font-weight:600; margin-bottom:10px;">Vormerkungen ({{len .Reservations}})</div>
+          {{range .Reservations}}
+          <div style="display:flex; align-items:center; justify-content:space-between; font-size:13.5px; color:#2A2722; padding:6px 11px; background:#F3EFE8; border-radius:7px; margin-bottom:6px;">
+            <span>{{.Student.Name}} <span class="tbl-muted" style="font-size:12px;">Kl. {{.Student.Class.Year}}{{.Student.Class.Label}}</span></span>
+            <form method="POST" action="/reservations/{{.ID}}/cancel">
+              <input type="hidden" name="redirect" value="/books/{{$.Book.ID}}">
+              <button type="submit" style="background:none; border:none; color:#B0492E; cursor:pointer; font-size:13px; padding:0;" title="Vormerkung stornieren">✕</button>
+            </form>
+          </div>
+          {{end}}
+        </div>
+        {{end}}
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:0;">
+    <div class="card-body" style="padding:20px 24px 4px;">
+      <h2>Ausleih-Verlauf</h2>
+    </div>
+    <div class="tbl-head" style="grid-template-columns:1.5fr 0.9fr 1fr 1fr 1.2fr 0.9fr;">
+      <span>Schüler</span><span>Klasse</span><span>Ausgeliehen</span><span>Zurück</span><span>Status</span><span style="text-align:right;">Aktionen</span>
+    </div>
+    {{range .Loans}}
+    <div class="tbl-row" style="grid-template-columns:1.5fr 0.9fr 1fr 1fr 1.2fr 0.9fr;">
+      <span style="font-weight:700;">{{.Student.Name}}</span>
+      <span class="tbl-muted">Klasse {{.Student.Class.Year}}{{.Student.Class.Label}}</span>
+      <span class="tbl-muted">{{.BorrowedAt.Format "02.01.2006"}}</span>
+      <span class="tbl-muted">{{if .ReturnedAt}}{{.ReturnedAt.Format "02.01.2006"}}{{else}}—{{end}}</span>
+      <span>
+        {{if .ReturnedAt}}
+        <span class="pill pill-gray">Zurückgegeben</span>
+        {{else if .Overdue}}
+        <span class="pill pill-red">Überfällig</span>
+        {{else}}
+        <span class="pill pill-green">Ausgeliehen</span>
+        {{end}}
+      </span>
+      <span style="text-align:right;">
+        {{if not .ReturnedAt}}
+        <button type="button" class="btn-link" onclick="openProlongModal({{.ID}}, '{{$.Book.Title}}', {{if .ReservedByOther}}true{{else}}false{{end}})">Verlängern</button>
+        {{end}}
+      </span>
+    </div>
+    {{else}}
+    <div class="tbl-empty">Noch keine Ausleihen für dieses Buch.</div>
+    {{end}}
+  </div>
+
+</div>
+
+<!-- ── Reservation modal ── -->
+<div id="reserve-overlay" style="display:none; position:fixed; inset:0; background:rgba(42,39,34,.45); z-index:1000; align-items:center; justify-content:center;">
+  <div style="width:420px; max-width:calc(100vw - 2rem); background:#FBF8F2; border-radius:18px; box-shadow:0 30px 70px -20px rgba(42,39,34,.5); border:1px solid #ECE4D6; padding:28px; position:relative;">
+    <button type="button" onclick="document.getElementById('reserve-overlay').style.display='none'" style="position:absolute; top:18px; right:20px; background:none; border:none; cursor:pointer; font-size:20px; color:#B3A998; line-height:1;">✕</button>
+    <h3 style="margin:0 0 20px; font-family:'Lora',serif; font-weight:600; font-size:20px; color:#2A2722;">Für Schüler vormerken</h3>
+    <form method="POST" action="/reservations">
+      <input type="hidden" name="book_id" value="{{.Book.ID}}">
+      <input type="hidden" name="redirect" value="/books/{{.Book.ID}}">
+      <div class="field" style="margin-bottom:20px;">
+        <label class="field-label" for="reserve-student">Schüler</label>
+        <select id="reserve-student" name="student_id" required>
+          <option value="">— Schüler wählen —</option>
+          {{range .Classes}}
+          {{$class := .}}
+          <optgroup label="Klasse {{.Year}}{{.Label}} — {{.Teacher}}">
+            {{range $.StudentsByClass}}
+            {{if eq .ClassID $class.ID}}
+            <option value="{{.ID}}">{{.Name}}</option>
+            {{end}}
+            {{end}}
+          </optgroup>
+          {{end}}
+        </select>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button type="submit" class="btn btn-primary">Vormerken</button>
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('reserve-overlay').style.display='none'">Abbrechen</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Prolong modal ── -->
+<div id="prolong-modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(42,39,34,.45); z-index:1000; align-items:center; justify-content:center;">
+  <div style="width:400px; max-width:calc(100vw - 2rem); background:#FBF8F2; border-radius:18px; box-shadow:0 30px 70px -20px rgba(42,39,34,.5); border:1px solid #ECE4D6; padding:28px; position:relative;">
+    <button type="button" onclick="closeProlongModal()" style="position:absolute; top:18px; right:20px; background:none; border:none; cursor:pointer; font-size:20px; color:#B3A998; line-height:1;">✕</button>
+    <h3 id="prolong-modal-title" style="margin:0 0 20px; font-family:'Lora',serif; font-weight:600; font-size:20px; color:#2A2722;">Ausleihe verlängern</h3>
+
+    <div id="prolong-modal-blocked" style="display:none;">
+      <p style="font-size:14.5px; color:#B0492E; margin:0 0 20px;">Verlängerung nicht möglich: Ein anderer Schüler hat dieses Buch vorgemerkt.</p>
+      <button type="button" class="btn btn-secondary" onclick="closeProlongModal()">Schließen</button>
+    </div>
+
+    <form id="prolong-modal-form" method="POST">
+      <input type="hidden" name="redirect" value="/books/{{.Book.ID}}">
+      <div class="field" style="margin-bottom:20px;">
+        <label class="field-label" for="prolong-modal-date">Neues Rückgabedatum</label>
+        <input id="prolong-modal-date" name="due_date" type="date" required>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button type="submit" class="btn btn-primary">Verlängern</button>
+        <button type="button" class="btn btn-secondary" onclick="closeProlongModal()">Abbrechen</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  function defaultDueDate() {
+    var d = new Date();
+    d.setDate(d.getDate() + 14);
+    return d.toISOString().slice(0, 10);
+  }
+  window.openProlongModal = function (loanID, bookTitle, reservedByOther) {
+    document.getElementById('prolong-modal-title').textContent = 'Verlängern: ' + bookTitle;
+    document.getElementById('prolong-modal-form').action = '/loans/' + loanID + '/prolong';
+    document.getElementById('prolong-modal-date').value = defaultDueDate();
+    document.getElementById('prolong-modal-blocked').style.display = reservedByOther ? 'block' : 'none';
+    document.getElementById('prolong-modal-form').style.display = reservedByOther ? 'none' : 'block';
+    document.getElementById('prolong-modal-overlay').style.display = 'flex';
+  };
+  window.closeProlongModal = function () {
+    document.getElementById('prolong-modal-overlay').style.display = 'none';
+  };
+}());
+</script>
+
+<!-- ── Edit modal ── -->
+{{if .ShowEditModal}}
+<div style="display:flex; position:fixed; inset:0; background:rgba(42,39,34,.45); z-index:1000; align-items:center; justify-content:center;">
+  <div style="width:560px; max-width:calc(100vw - 2rem); background:#FBF8F2; border-radius:18px; box-shadow:0 30px 70px -20px rgba(42,39,34,.5); border:1px solid #ECE4D6; padding:28px; position:relative;">
+    <a href="/books/{{.Book.ID}}" style="position:absolute; top:18px; right:20px; font-size:20px; color:#B3A998; text-decoration:none; line-height:1;">✕</a>
+    <h3 style="margin:0 0 20px; font-family:'Lora',serif; font-weight:600; font-size:23px; color:#2A2722;">Buch bearbeiten</h3>
+    <form method="POST" action="/books/{{.Book.ID}}">
+      <div class="field" style="margin-bottom:16px;">
+        <label class="field-label" for="edit-title">Titel</label>
+        <input id="edit-title" name="title" type="text" value="{{.Book.Title}}" required>
+      </div>
+      <div style="display:grid; grid-template-columns:1.6fr 1.2fr 0.8fr; gap:16px; margin-bottom:16px;">
+        <div class="field">
+          <label class="field-label" for="edit-author">Autor</label>
+          <input id="edit-author" name="author" type="text" value="{{.Book.Author}}">
+        </div>
+        <div class="field">
+          <label class="field-label" for="edit-publisher">Verlag</label>
+          <input id="edit-publisher" name="publisher" type="text" value="{{.Book.Publisher}}">
+        </div>
+        <div class="field">
+          <label class="field-label" for="edit-year">Jahr</label>
+          <input id="edit-year" name="published_year" type="text" value="{{if .Book.PublishedYear}}{{.Book.PublishedYear}}{{end}}">
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+        <div class="field">
+          <label class="field-label" for="edit-shelf-row">Reihe</label>
+          <input id="edit-shelf-row" name="shelf_row" type="text" placeholder="z.B. A" value="{{.Book.ShelfRow}}">
+        </div>
+        <div class="field">
+          <label class="field-label" for="edit-shelf-column">Spalte</label>
+          <input id="edit-shelf-column" name="shelf_column" type="text" placeholder="z.B. 3" value="{{.Book.ShelfColumn}}">
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;">
+        <div class="field">
+          <label class="field-label" for="edit-category">Kategorie</label>
+          <select id="edit-category" name="category">
+            <option value="">—</option>
+            <option value="Bilderbuch" {{if eq .Book.Category "Bilderbuch"}}selected{{end}}>Bilderbuch</option>
+            <option value="Erstleser" {{if eq .Book.Category "Erstleser"}}selected{{end}}>Erstleser</option>
+            <option value="Abenteuer" {{if eq .Book.Category "Abenteuer"}}selected{{end}}>Abenteuer</option>
+            <option value="Fantasy" {{if eq .Book.Category "Fantasy"}}selected{{end}}>Fantasy</option>
+            <option value="Sachbuch" {{if eq .Book.Category "Sachbuch"}}selected{{end}}>Sachbuch</option>
+            <option value="Natur &amp; Tiere" {{if eq .Book.Category "Natur & Tiere"}}selected{{end}}>Natur &amp; Tiere</option>
+            <option value="Geschichte" {{if eq .Book.Category "Geschichte"}}selected{{end}}>Geschichte</option>
+            <option value="Humor" {{if eq .Book.Category "Humor"}}selected{{end}}>Humor</option>
+            <option value="Sonstiges" {{if eq .Book.Category "Sonstiges"}}selected{{end}}>Sonstiges</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label" for="edit-level">Lesestufe</label>
+          <select id="edit-level" name="reading_level">
+            <option value="">—</option>
+            <option value="Klasse 1" {{if eq .Book.ReadingLevel "Klasse 1"}}selected{{end}}>Klasse 1</option>
+            <option value="Klasse 1–2" {{if eq .Book.ReadingLevel "Klasse 1–2"}}selected{{end}}>Klasse 1–2</option>
+            <option value="Klasse 2" {{if eq .Book.ReadingLevel "Klasse 2"}}selected{{end}}>Klasse 2</option>
+            <option value="Klasse 2–3" {{if eq .Book.ReadingLevel "Klasse 2–3"}}selected{{end}}>Klasse 2–3</option>
+            <option value="Klasse 3" {{if eq .Book.ReadingLevel "Klasse 3"}}selected{{end}}>Klasse 3</option>
+            <option value="Klasse 3–4" {{if eq .Book.ReadingLevel "Klasse 3–4"}}selected{{end}}>Klasse 3–4</option>
+            <option value="Klasse 4" {{if eq .Book.ReadingLevel "Klasse 4"}}selected{{end}}>Klasse 4</option>
+            <option value="Alle" {{if eq .Book.ReadingLevel "Alle"}}selected{{end}}>Alle</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button type="submit" class="btn btn-primary">Speichern</button>
+        <a href="/books/{{.Book.ID}}" class="btn btn-secondary">Abbrechen</a>
+      </div>
+    </form>
+  </div>
+</div>
+{{end}}
+
+<!-- ── Copy removal modal ── -->
+{{if .Copies}}
+<div id="copy-remove-overlay" style="display:none; position:fixed; inset:0; background:rgba(42,39,34,.45); z-index:1000; align-items:center; justify-content:center;">
+  <div style="width:480px; max-width:calc(100vw - 2rem); background:#FBF8F2; border-radius:18px; box-shadow:0 30px 70px -20px rgba(42,39,34,.5); border:1px solid #ECE4D6; padding:28px; position:relative; max-height:90vh; overflow-y:auto;">
+    <button onclick="closeCopyRemoveModal()" style="position:absolute; top:18px; right:20px; background:none; border:none; cursor:pointer; font-size:20px; color:#B3A998; line-height:1;">✕</button>
+    <h3 style="margin:0; font-family:'Lora',serif; font-weight:600; font-size:23px; color:#2A2722;">Exemplar entfernen</h3>
+    <p style="margin:4px 0 18px; font-family:'Karla',sans-serif; font-size:14.5px; color:#857B6E;">{{.Book.Title}} · {{.CopyCount}} Exemplar{{if gt .CopyCount 1}}e{{end}}</p>
+
+    <!-- NFC scan zone -->
+    <div style="display:flex; align-items:center; gap:14px; padding:16px; border:1.5px dashed #C9BBA6; border-radius:12px; background:#FFFFFF; margin-bottom:18px;">
+      <span style="width:40px; height:40px; border-radius:11px; background:#3A5A40; display:inline-flex; align-items:center; justify-content:center; color:#FBF8F2; font-size:18px; flex-shrink:0;">◈</span>
+      <div>
+        <div style="font-family:'Karla',sans-serif; font-weight:700; font-size:15px; color:#2A2722;">Exemplar an den Reader halten</div>
+        <div style="display:flex; align-items:center; gap:7px; margin-top:3px;">
+          <span style="width:8px; height:8px; border-radius:50%; background:#3A5A40; box-shadow:0 0 0 3px rgba(58,90,64,.16);"></span>
+          <span style="font-family:'Karla',sans-serif; font-size:13px; color:#857B6E;">Warte auf Tag…</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+      <span style="flex:1; height:1px; background:#ECE4D6;"></span>
+      <span style="font-family:'Karla',sans-serif; font-size:12.5px; color:#A89C8A;">oder Exemplar wählen</span>
+      <span style="flex:1; height:1px; background:#ECE4D6;"></span>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:18px;" id="copy-list">
+      {{range .Copies}}
+      {{if .OnLoan}}
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border:1px solid #ECE4D6; background:#F8F4EC; border-radius:12px; opacity:.7;">
+        <div>
+          <div style="font-family:'Karla',sans-serif; font-weight:700; font-size:14.5px; color:#A89C8A;">Exemplar {{.ID}}</div>
+          <div style="font-family:'DM Mono',ui-monospace,monospace; font-size:12px; color:#B3A998; margin-top:2px;">{{.NFCTagID}}</div>
+        </div>
+        <span style="font-family:'Karla',sans-serif; font-size:12.5px; color:#857B6E;">Ausgeliehen · nicht entfernbar</span>
+      </div>
+      {{else}}
+      <div class="copy-pick" data-id="{{.ID}}" data-nfc="{{.NFCTagID}}" onclick="selectCopy({{.ID}}, '{{.NFCTagID}}')"
+           style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border:1px solid #ECE4D6; background:#FFFFFF; border-radius:12px; cursor:pointer; transition:border-color .15s, background .15s;">
+        <div>
+          <div style="font-family:'Karla',sans-serif; font-weight:700; font-size:14.5px; color:#3D372E;">Exemplar {{.ID}}</div>
+          <div style="font-family:'DM Mono',ui-monospace,monospace; font-size:12px; color:#A89C8A; margin-top:2px;">{{.NFCTagID}}</div>
+        </div>
+        <span style="font-family:'Karla',sans-serif; font-size:13px; color:#3A5A40; font-weight:600;">Verfügbar</span>
+      </div>
+      {{end}}
+      {{end}}
+    </div>
+
+    <!-- Last-copy warning (hidden until last copy is selected) -->
+    <div id="last-copy-warn" style="display:none; padding:14px 16px; border-radius:12px; background:#F6E2DC; border:1px solid #E9CFC6; font-family:'Karla',sans-serif; font-size:14.5px; color:#B0492E; line-height:1.55; margin-bottom:16px;">
+      Du entfernst das <strong>letzte Exemplar</strong>. Der Titel wird damit vollständig aus dem Katalog entfernt.
+    </div>
+
+    <div class="field" style="margin-bottom:20px;">
+      <label class="field-label" for="remove-grund">Grund</label>
+      <select id="remove-grund" name="grund">
+        <option value="Beschädigt">Beschädigt</option>
+        <option value="Verloren">Verloren</option>
+        <option value="Aussortiert">Aussortiert</option>
+        <option value="Sonstiges">Sonstiges</option>
+      </select>
+    </div>
+
+    <form id="copy-remove-form" method="POST">
+      <input type="hidden" name="book_id" value="{{.Book.ID}}">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button type="submit" id="copy-remove-btn" disabled style="display:inline-flex; align-items:center; padding:12px 24px; border-radius:11px; background:#B0492E; color:#FBF8F2; font-family:'Karla',sans-serif; font-weight:700; font-size:15px; border:none; cursor:not-allowed; opacity:.45;">Exemplar entfernen</button>
+        <button type="button" onclick="closeCopyRemoveModal()" class="btn btn-secondary">Abbrechen</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  var totalCopies = {{.CopyCount}};
+  var selectedID = null;
+
+  window.openCopyRemoveModal = function () {
+    document.getElementById('copy-remove-overlay').style.display = 'flex';
+    window.copyRemovalOpen = true;
+  };
+  window.closeCopyRemoveModal = function () {
+    document.getElementById('copy-remove-overlay').style.display = 'none';
+    window.copyRemovalOpen = false;
+    resetSelection();
+  };
+
+  function resetSelection() {
+    selectedID = null;
+    document.querySelectorAll('.copy-pick').forEach(function (el) {
+      el.style.border = '1px solid #ECE4D6';
+      el.style.background = '#FFFFFF';
+    });
+    var btn = document.getElementById('copy-remove-btn');
+    btn.disabled = true;
+    btn.style.opacity = '.45';
+    btn.style.cursor = 'not-allowed';
+    btn.textContent = 'Exemplar entfernen';
+    document.getElementById('last-copy-warn').style.display = 'none';
+  }
+
+  window.selectCopy = function (id, nfc) {
+    selectedID = id;
+    document.querySelectorAll('.copy-pick').forEach(function (el) {
+      var active = parseInt(el.dataset.id) === id;
+      el.style.border = active ? '1.5px solid #3A5A40' : '1px solid #ECE4D6';
+      el.style.background = active ? '#E7EFE4' : '#FFFFFF';
+    });
+    var isLast = (totalCopies === 1);
+    document.getElementById('last-copy-warn').style.display = isLast ? 'block' : 'none';
+    var btn = document.getElementById('copy-remove-btn');
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+    btn.textContent = isLast ? 'Titel & Exemplar entfernen' : 'Exemplar entfernen';
+    document.getElementById('copy-remove-form').action = '/copies/' + id + '/delete';
+  };
+
+  // NFC auto-select when removal modal is open
+  window.handleNFCForRemoval = function (nfc) {
+    var picks = document.querySelectorAll('.copy-pick');
+    for (var i = 0; i < picks.length; i++) {
+      if (picks[i].dataset.nfc === nfc) {
+        window.selectCopy(parseInt(picks[i].dataset.id), nfc);
+        return true;
+      }
+    }
+    return false;
+  };
+}());
+</script>
+{{end}}
+{{end}}

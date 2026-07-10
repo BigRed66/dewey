@@ -1,0 +1,125 @@
+{{define "title"}}Buch hinzufügen{{end}}
+{{define "content"}}
+<div style="margin-bottom:28px;">
+  <h1>Buch hinzufügen</h1>
+  <p class="subtitle">Tag scannen, optional ISBN holen, Details ergänzen.</p>
+</div>
+
+{{if .LookupError}}<div class="alert-error">{{.LookupError}}</div>{{end}}
+{{if .SaveError}}<div class="alert-error">{{.SaveError}}</div>{{end}}
+
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-body">
+    <h2 style="margin-bottom:18px;">Tag &amp; ISBN</h2>
+    <form method="POST" action="/books/lookup">
+      <div style="display:grid; grid-template-columns:1.3fr 1.3fr auto; gap:18px; align-items:end;">
+        <div class="field">
+          <label class="field-label" for="nfc_tag_id">NFC-Tag-ID</label>
+          <input id="nfc_tag_id" name="nfc_tag_id" type="text"
+                 placeholder="Tag an Reader halten…" value="{{.NFCTagID}}"
+                 style="font-family:'DM Mono',ui-monospace,monospace;" required>
+        </div>
+        <div class="field">
+          <label class="field-label" for="isbn">ISBN <span style="text-transform:none;letter-spacing:0;font-weight:400;color:#B3A998;">(optional)</span></label>
+          <input id="isbn" name="isbn" type="text"
+                 placeholder="z.B. 9783551551672" value="{{.ISBN}}">
+        </div>
+        <button type="submit" class="btn btn-primary" style="white-space:nowrap;">Weiter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{{if .ExistingBookID}}
+<div class="card" style="border-left:4px solid #3A5A40;">
+  <div class="card-body">
+    <h2 style="margin-bottom:16px;">Buch bereits vorhanden — Exemplar hinzufügen</h2>
+    <div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:20px;">
+      {{if .CoverURL}}
+      <img src="{{.CoverURL}}" alt="Cover" style="height:90px; width:auto; border-radius:6px; flex-shrink:0;">
+      {{end}}
+      <div>
+        <p style="font-size:1.05rem; font-weight:700; color:#2A2722;">{{.Title}}</p>
+        {{if .Author}}<p class="tbl-muted" style="margin-top:4px;">{{.Author}}</p>{{end}}
+      </div>
+    </div>
+    <form method="POST" action="/books">
+      <input type="hidden" name="nfc_tag_id" value="{{.NFCTagID}}">
+      <input type="hidden" name="existing_book_id" value="{{.ExistingBookID}}">
+      <button type="submit" class="btn btn-primary">Exemplar hinzufügen</button>
+    </form>
+  </div>
+</div>
+{{else if .NFCTagID}}
+<div class="card">
+  <div class="card-body">
+    <h2 style="margin-bottom:18px;">Buchdetails</h2>
+    <form method="POST" action="/books" style="display:contents;">
+      <input type="hidden" name="nfc_tag_id" value="{{.NFCTagID}}">
+      <input type="hidden" name="isbn" value="{{.ISBN}}">
+      <input type="hidden" name="cover_url" value="{{.CoverURL}}">
+
+      <div style="display:flex; gap:18px; align-items:flex-start; margin-bottom:18px;">
+        {{if .CoverURL}}
+        <img src="{{.CoverURL}}" alt="Cover" style="height:100px; width:auto; border-radius:6px; flex-shrink:0;">
+        {{end}}
+        <div style="flex:1;">
+          <div class="field" style="margin-bottom:16px;">
+            <label class="field-label" for="title">Titel</label>
+            <input id="title" name="title" type="text" value="{{.Title}}" required>
+          </div>
+          <div style="display:grid; grid-template-columns:1.6fr 1.2fr 0.8fr; gap:16px;">
+            <div class="field">
+              <label class="field-label" for="author">Autor</label>
+              <input id="author" name="author" type="text" value="{{.Author}}">
+            </div>
+            <div class="field">
+              <label class="field-label" for="publisher">Verlag</label>
+              <input id="publisher" name="publisher" type="text" value="{{.Publisher}}">
+            </div>
+            <div class="field">
+              <label class="field-label" for="published_year">Jahr</label>
+              <input id="published_year" name="published_year" type="text"
+                     value="{{if .PublishedYear}}{{.PublishedYear}}{{end}}">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px;">
+        <div class="field">
+          <label class="field-label" for="shelf_row">Reihe</label>
+          <input id="shelf_row" name="shelf_row" type="text" placeholder="z.B. A" value="{{.ShelfRow}}">
+        </div>
+        <div class="field">
+          <label class="field-label" for="shelf_column">Spalte</label>
+          <input id="shelf_column" name="shelf_column" type="text" placeholder="z.B. 3" value="{{.ShelfColumn}}">
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:18px; align-items:end;">
+        <div class="field">
+          <label class="field-label" for="category">Kategorie</label>
+          <select id="category" name="category">
+            <option value="">—</option>
+            {{range $c := .Categories}}
+            <option value="{{$c}}" {{if eq $c $.Category}}selected{{end}}>{{$c}}</option>
+            {{end}}
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label" for="reading_level">Lesestufe</label>
+          <select id="reading_level" name="reading_level">
+            <option value="">—</option>
+            {{range $l := .ReadingLevels}}
+            <option value="{{$l}}" {{if eq $l $.ReadingLevel}}selected{{end}}>{{$l}}</option>
+            {{end}}
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Speichern</button>
+      </div>
+    </form>
+  </div>
+</div>
+{{end}}
+{{end}}

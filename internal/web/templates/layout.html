@@ -1,0 +1,493 @@
+{{define "layout"}}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{template "title" .}} — Dewey</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Karla:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Karla', system-ui, sans-serif; background: #EAE5DB; color: #2A2722; min-height: 100vh; }
+
+/* ── Nav ── */
+nav {
+  background: #3A5A40;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+}
+.nav-brand { display: flex; align-items: center; gap: 18px; }
+.nav-logo { display: flex; align-items: center; gap: 11px; text-decoration: none; }
+.nav-logo-badge {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: #FBF8F2;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: 'Lora', serif; font-weight: 700; font-size: 16px; color: #3A5A40;
+}
+.nav-logo-name { font-family: 'Lora', serif; font-weight: 600; font-size: 22px; color: #FBF8F2; }
+.nav-sep { width: 1px; height: 22px; background: rgba(251,248,242,.22); }
+.nav-nfc {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 14px; border-radius: 999px;
+  background: rgba(251,248,242,.13); border: 1px solid rgba(251,248,242,.22);
+  white-space: nowrap;
+}
+.nav-nfc-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #6B7C6B; flex-shrink: 0;
+  transition: background .3s, box-shadow .3s;
+}
+.nav-nfc-dot.ready  { background: #A6D89A; box-shadow: 0 0 0 3px rgba(166,216,154,.22); }
+.nav-nfc-dot.error  { background: #E07070; }
+.nav-nfc-text { font-family: 'Karla', sans-serif; font-size: 13.5px; color: #EAF2E6; font-weight: 600; }
+.nav-links { display: flex; gap: 30px; align-items: center; height: 64px; }
+.nav-links a {
+  font-family: 'Karla', sans-serif; font-size: 15.5px;
+  color: rgba(203,217,197,.85); text-decoration: none;
+  height: 100%; display: flex; align-items: center;
+  position: relative; padding-bottom: 2px;
+}
+.nav-links a:hover { color: #FBF8F2; }
+.nav-links a.active { color: #FBF8F2; font-weight: 600; }
+.nav-links a.active::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0;
+  height: 3px; border-radius: 3px 3px 0 0; background: #E8C07D;
+}
+
+/* ── Layout ── */
+.container { max-width: 1040px; margin: 0 auto; padding: 36px 24px 80px; }
+
+/* ── Typography ── */
+h1 { font-family: 'Lora', serif; font-weight: 600; font-size: 34px; color: #2A2722; letter-spacing: -0.01em; }
+h2 { font-family: 'Lora', serif; font-weight: 600; font-size: 18px; color: #2A2722; }
+.subtitle { font-size: 15.5px; color: #857B6E; margin-top: 6px; }
+
+/* ── Page header ── */
+.page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; }
+
+/* ── Card ── */
+.card {
+  background: #FFFFFF; border: 1px solid #ECE4D6; border-radius: 16px;
+  overflow: hidden; margin-bottom: 24px;
+}
+.card-body { padding: 24px; }
+.card-body + .card-body { border-top: 1px solid #F1EADD; }
+
+/* ── Table (grid-based) ── */
+.tbl-head {
+  display: grid; padding: 14px 24px;
+  font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #A89C8A;
+}
+.tbl-row {
+  display: grid; align-items: center; padding: 16px 24px;
+  border-top: 1px solid #F1EADD;
+  font-size: 15px; color: #3D372E;
+  transition: background .1s;
+}
+.tbl-row:hover { background: #FDFAF6; }
+.tbl-row td-strong { font-weight: 700; }
+.tbl-muted { color: #857B6E; }
+.tbl-empty { padding: 24px; color: #A89C8A; font-size: 15px; text-align: center; border-top: 1px solid #F1EADD; }
+
+/* ── Forms ── */
+.field { display: flex; flex-direction: column; gap: 7px; }
+.field-label {
+  font-size: 12px; letter-spacing: 0.07em; text-transform: uppercase;
+  color: #A89C8A; font-weight: 600;
+}
+input[type=text], input[type=date], select, textarea {
+  padding: 12px 15px; border: 1px solid #E2D8C7; border-radius: 11px;
+  background: #FBF8F2; font-family: 'Karla', sans-serif; font-size: 15px; color: #3D372E;
+  width: 100%; appearance: none; -webkit-appearance: none;
+}
+input[type=text]:focus, input[type=date]:focus, select:focus {
+  outline: none; border-color: #3A5A40; box-shadow: 0 0 0 3px rgba(58,90,64,.14);
+}
+input[type=text]:disabled { background: #F1EADD; color: #A89C8A; cursor: not-allowed; }
+input[type=text]::placeholder, textarea::placeholder { color: #B3A998; }
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23B3A998' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; cursor: pointer;
+}
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 24px; border-radius: 11px;
+  font-family: 'Karla', sans-serif; font-weight: 700; font-size: 15px;
+  cursor: pointer; border: none; text-decoration: none; white-space: nowrap;
+  transition: opacity .15s; line-height: 1;
+}
+.btn:hover { opacity: .88; }
+.btn-primary { background: #3A5A40; color: #FBF8F2; }
+.btn-secondary { background: #FFFFFF; border: 1px solid #E2D8C7; color: #857B6E; font-weight: 600; }
+.btn-link {
+  background: none; border: none; padding: 0;
+  font-family: 'Karla', sans-serif; font-size: 15px; color: #857B6E;
+  text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+}
+
+/* ── Search bar ── */
+.search-bar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 17px; background: #FFFFFF; border: 1px solid #ECE4D6; border-radius: 13px;
+  margin-bottom: 16px;
+}
+.search-bar input {
+  border: none; background: none; padding: 0;
+  font-family: 'Karla', sans-serif; font-size: 15.5px; color: #3D372E; flex: 1;
+}
+.search-bar input:focus { outline: none; }
+.search-bar input::placeholder { color: #B3A998; }
+.search-icon { font-size: 17px; color: #B3A998; flex-shrink: 0; }
+
+/* ── Pills ── */
+.pill { display: inline-block; padding: 5px 11px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.pill-green { background: #E7EFE4; color: #3A5A40; }
+.pill-red   { background: #F6E2DC; color: #B0492E; }
+.pill-gray  { background: #F1EADD; color: #857B6E; }
+
+/* ── Row action menu ── */
+.row-menu { position:relative; display:flex; justify-content:flex-end; }
+.row-menu-btn {
+  width:32px; height:32px; border-radius:9px; border:1px solid #ECE4D6;
+  display:inline-flex; align-items:center; justify-content:center;
+  color:#857B6E; font-size:18px; cursor:pointer; background:#FFFFFF;
+  transition:background .1s;
+}
+.row-menu-btn:hover { background:#F3EFE8; border-color:#D4C9B8; }
+.row-menu-drop {
+  display:none; position:fixed;
+  background:#FFFFFF; border:1px solid #ECE4D6; border-radius:12px;
+  box-shadow:0 8px 28px rgba(42,39,34,.13); padding:5px; z-index:1100; min-width:148px;
+}
+.row-menu-drop.open { display:block; }
+.row-menu-drop a, .row-menu-drop button {
+  display:block; width:100%; text-align:left; padding:9px 14px; border-radius:8px;
+  font-family:'Karla',sans-serif; font-size:14px; font-weight:600; text-decoration:none;
+  border:none; background:none; cursor:pointer; line-height:1.2; box-sizing:border-box;
+}
+.row-menu-drop a:hover, .row-menu-drop button:hover { background:#F3EFE8; }
+.row-menu-drop .mitem-edit { color:#3A5A40; }
+.row-menu-drop .mitem-del  { color:#B0492E; }
+
+/* ── Avail dot ── */
+.avail { display: inline-flex; align-items: center; gap: 7px; font-size: 15px; }
+.avail-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.avail-dot.green { background: #3A5A40; }
+.avail-dot.red   { background: #B0492E; }
+
+/* ── Filter chips ── */
+.filter-bar { display: flex; gap: 8px; flex-wrap: wrap; padding: 18px 24px 14px; }
+.filter-bar a {
+  padding: 7px 16px; border-radius: 999px;
+  font-size: 14px; font-weight: 500; text-decoration: none;
+  background: #F1EADD; color: #857B6E;
+}
+.filter-bar a.active, .filter-bar a:hover { background: #3A5A40; color: #FBF8F2; font-weight: 600; }
+
+/* ── Error / success ── */
+.alert-error {
+  color: #B0492E; font-size: 14.5px; padding: 12px 16px;
+  background: #F6E2DC; border: 1px solid #E9CFC6; border-radius: 10px; margin-bottom: 18px;
+}
+.alert-success {
+  color: #2F4A34; font-size: 14.5px; padding: 12px 16px;
+  background: #E7EFE4; border: 1px solid #D4E2CF; border-radius: 10px; margin-bottom: 18px;
+}
+
+/* ── NFC scan modal ── */
+#nfc-modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(42,39,34,.45); z-index: 1000;
+  align-items: center; justify-content: center;
+}
+#nfc-modal {
+  width: 440px; max-width: calc(100vw - 2rem);
+  background: #FBF8F2; border-radius: 18px;
+  box-shadow: 0 30px 70px -20px rgba(42,39,34,.5);
+  border: 1px solid #ECE4D6; padding: 28px; position: relative;
+}
+.modal-close {
+  position: absolute; top: 18px; right: 20px;
+  font-size: 20px; color: #B3A998; background: none; border: none; cursor: pointer; line-height: 1;
+}
+.modal-title { font-family: 'Lora', serif; font-weight: 600; font-size: 23px; color: #2A2722; }
+.modal-subtitle { font-size: 15px; color: #857B6E; margin-top: 4px; margin-bottom: 16px; }
+.modal-loan-info {
+  padding: 14px 16px; border-radius: 12px;
+  background: #F6E2DC; border: 1px solid #E9CFC6;
+  font-size: 14.5px; color: #B0492E; line-height: 1.5; margin-bottom: 22px;
+}
+.modal-avail-badge {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 9px 15px; border-radius: 999px;
+  background: #E7EFE4; border: 1px solid #D4E2CF; margin-bottom: 22px;
+}
+.modal-avail-dot { width: 9px; height: 9px; border-radius: 50%; background: #3A5A40; box-shadow: 0 0 0 3px rgba(58,90,64,.16); }
+.modal-avail-text { font-size: 14px; color: #3A5A40; font-weight: 600; }
+.modal-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.modal-error { color: #B0492E; font-size: 13.5px; margin-bottom: 10px; min-height: 1.2em; }
+
+/* ── Confirm modal ── */
+#confirm-modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(42,39,34,.45); z-index: 1000;
+  align-items: center; justify-content: center;
+}
+#confirm-modal {
+  width: 400px; max-width: calc(100vw - 2rem);
+  background: #FBF8F2; border-radius: 18px;
+  box-shadow: 0 30px 70px -20px rgba(42,39,34,.5);
+  border: 1px solid #ECE4D6; padding: 28px; position: relative;
+}
+.btn-danger { background: #FFFFFF; border: 1px solid #E9CFC6; color: #B0492E; font-weight: 700; }
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-brand">
+    <a href="/" class="nav-logo">
+      <span class="nav-logo-badge">D</span>
+      <span class="nav-logo-name">Dewey</span>
+    </a>
+    <span class="nav-sep"></span>
+    <span class="nav-nfc">
+      <span class="nav-nfc-dot" id="nav-dot"></span>
+      <span class="nav-nfc-text" id="nav-text">NFC…</span>
+    </span>
+  </div>
+  <div class="nav-links">
+    <a href="/classes">Klassen</a>
+    <a href="/students">Schüler</a>
+    <a href="/books">Bücher</a>
+    <a href="/loans">Ausleihen</a>
+    <span class="nav-sep"></span>
+    <a href="/settings" style="font-size:18px; padding-bottom:0; color:rgba(203,217,197,.7);" title="Einstellungen">⚙</a>
+  </div>
+</nav>
+<div class="container">
+  {{template "content" .}}
+</div>
+
+<!-- Global NFC scan modal -->
+<div id="nfc-modal-overlay">
+  <div id="nfc-modal">
+    <button class="modal-close" onclick="nfcModalClose()">✕</button>
+    <div id="nfc-modal-body"></div>
+  </div>
+</div>
+
+<!-- Global confirm modal -->
+<div id="confirm-modal-overlay">
+  <div id="confirm-modal">
+    <h3 class="modal-title" id="confirm-modal-title" style="margin-bottom:10px;"></h3>
+    <p class="modal-subtitle" id="confirm-modal-message" style="margin-bottom:22px;"></p>
+    <div class="modal-actions" style="justify-content:flex-end;">
+      <button type="button" class="btn btn-secondary" onclick="confirmModalCancel()">Abbrechen</button>
+      <button type="button" class="btn btn-danger" id="confirm-modal-ok">Löschen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // ── Row menus ──
+  function closeRowMenus() {
+    document.querySelectorAll('.row-menu-drop.open').forEach(function(d){ d.classList.remove('open'); });
+  }
+  window.toggleRowMenu = function (btn, e) {
+    e.stopPropagation();
+    var drop = btn.nextElementSibling;
+    var isOpen = drop.classList.contains('open');
+    closeRowMenus();
+    if (isOpen) return;
+    drop.classList.add('open');
+    var btnRect = btn.getBoundingClientRect();
+    var dropRect = drop.getBoundingClientRect();
+    var openUpward = btnRect.bottom + 6 + dropRect.height > window.innerHeight;
+    drop.style.top = openUpward
+      ? (btnRect.top - 6 - dropRect.height) + 'px'
+      : (btnRect.bottom + 6) + 'px';
+    drop.style.left = Math.max(8, btnRect.right - dropRect.width) + 'px';
+  };
+  document.addEventListener('click', closeRowMenus);
+  window.addEventListener('scroll', closeRowMenus, true);
+  window.addEventListener('resize', closeRowMenus);
+
+  // ── Confirm modal (replaces window.confirm for delete forms) ──
+  var confirmOverlay = document.getElementById('confirm-modal-overlay');
+  window.confirmModalCancel = function () {
+    confirmOverlay.style.display = 'none';
+  };
+  confirmOverlay.addEventListener('click', function (e) {
+    if (e.target === confirmOverlay) confirmModalCancel();
+  });
+  window.confirmDelete = function (form, message, title) {
+    document.getElementById('confirm-modal-title').textContent = title || 'Wirklich löschen?';
+    document.getElementById('confirm-modal-message').textContent = message;
+    confirmOverlay.style.display = 'flex';
+    document.getElementById('confirm-modal-ok').onclick = function () {
+      confirmOverlay.style.display = 'none';
+      form.submit();
+    };
+    return false;
+  };
+
+  // ── Active nav link ──
+  var p = location.pathname;
+  document.querySelectorAll('.nav-links a').forEach(function (a) {
+    var href = a.getAttribute('href');
+    if (p === href || (href.length > 1 && p.startsWith(href))) a.classList.add('active');
+  });
+
+  // ── NFC status helpers ──
+  var dot  = document.getElementById('nav-dot');
+  var text = document.getElementById('nav-text');
+  function setNFCState(state, msg) {
+    dot.className = 'nav-nfc-dot' + (state ? ' ' + state : '');
+    text.textContent = msg;
+  }
+  setNFCState('', 'NFC nicht verbunden');
+
+  // ── Modal ──
+  window.nfcModalClose = function () {
+    document.getElementById('nfc-modal-overlay').style.display = 'none';
+  };
+  function nfcModalOpen() {
+    document.getElementById('nfc-modal-overlay').style.display = 'flex';
+  }
+
+  function esc(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function showModal(uid, data) {
+    var body = document.getElementById('nfc-modal-body');
+    if (!data.found) {
+      body.innerHTML =
+        '<p class="modal-title" style="margin-bottom:10px;">Buch nicht erfasst</p>' +
+        '<p style="color:#857B6E;font-size:15px;margin-bottom:20px;">Dieser Tag ist keinem Buch zugeordnet.</p>' +
+        '<div class="modal-actions">' +
+          '<a href="/books/new?nfc_tag_id=' + encodeURIComponent(uid) + '" class="btn btn-primary">＋ Buch anlegen</a>' +
+          '<button class="btn btn-secondary" onclick="nfcModalClose()">Schließen</button>' +
+        '</div>';
+      nfcModalOpen();
+      return;
+    }
+
+    var html = '<p class="modal-title">' + esc(data.title) + '</p>' +
+               '<p class="modal-subtitle">' + esc(data.author || '') + '</p>';
+
+    if (data.on_loan) {
+      var days = data.overdue
+        ? data.days_overdue + ' Tag' + (data.days_overdue !== 1 ? 'e' : '') + ' überfällig'
+        : 'noch ' + data.days_left + ' Tag' + (data.days_left !== 1 ? 'e' : '');
+      html += '<div class="modal-loan-info">Ausgeliehen von <strong>' + esc(data.student_name) +
+              '</strong>, fällig ' + esc(data.due_date) +
+              ' <span style="color:#A87263;">(' + esc(days) + ')</span></div>';
+      html += '<p class="modal-error" id="modal-err"></p>';
+      html += '<div class="modal-actions">' +
+              '<button class="btn btn-primary" id="modal-return-btn">Zurückgeben</button>' +
+              '<button class="btn btn-secondary" onclick="nfcModalClose()">Abbrechen</button>' +
+              '</div>';
+    } else {
+      html += '<div class="modal-avail-badge"><span class="modal-avail-dot"></span><span class="modal-avail-text">Verfügbar</span></div>';
+      var checkoutURL = '/loans/checkout?nfc_tag_id=' + encodeURIComponent(uid);
+      html += '<div class="modal-actions">' +
+              '<a href="' + checkoutURL + '" class="btn btn-primary">Ausleihen</a>' +
+              '<button class="btn btn-secondary" onclick="nfcModalClose()">Schließen</button>' +
+              '</div>';
+    }
+
+    body.innerHTML = html;
+    nfcModalOpen();
+
+    var returnBtn = document.getElementById('modal-return-btn');
+    if (returnBtn) {
+      returnBtn.addEventListener('click', function () {
+        returnBtn.disabled = true;
+        returnBtn.textContent = 'Wird zurückgegeben…';
+        var fd = new FormData();
+        fd.append('nfc_tag_id', uid);
+        fetch('/loans/return', { method: 'POST', body: fd, headers: { 'Accept': 'application/json' } })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+          .then(function (res) {
+            if (res.ok) {
+              body.innerHTML =
+                '<p class="modal-title" style="margin-bottom:10px;">Rückgabe erfasst</p>' +
+                '<p style="color:#857B6E;font-size:15px;margin-bottom:20px;">Das Buch wurde erfolgreich zurückgegeben.</p>' +
+                '<div class="modal-actions"><button class="btn btn-primary" onclick="nfcModalClose()">Schließen</button></div>';
+            } else {
+              returnBtn.disabled = false;
+              returnBtn.textContent = 'Zurückgeben';
+              var errEl = document.getElementById('modal-err');
+              if (errEl) errEl.textContent = res.d.error || 'Fehler beim Zurückgeben.';
+            }
+          })
+          .catch(function () {
+            returnBtn.disabled = false;
+            returnBtn.textContent = 'Zurückgeben';
+          });
+      });
+    }
+  }
+
+  // ── NFC SSE ──
+  function connect() {
+    var es = new EventSource('/nfc/events');
+    var dead = false;
+
+    es.addEventListener('nfc_ready', function () {
+      setNFCState('ready', 'NFC-Reader bereit');
+    });
+
+    es.addEventListener('nfc_disconnected', function () {
+      setNFCState('error', 'Reader nicht erreichbar');
+    });
+
+    es.onmessage = function (e) {
+      var uid = e.data.trim();
+      if (!uid) return;
+      setNFCState('ready', 'Tag gelesen');
+      setTimeout(function () { setNFCState('ready', 'NFC-Reader bereit'); }, 2000);
+
+      if (location.pathname === '/books/new') {
+        var input = document.getElementById('nfc_tag_id');
+        if (input) input.value = uid;
+      } else if (window.copyRemovalOpen && window.handleNFCForRemoval && window.handleNFCForRemoval(uid)) {
+        // handled by copy removal modal
+      } else {
+        fetch('/nfc/scan?uid=' + encodeURIComponent(uid))
+          .then(function (r) { return r.json(); })
+          .then(function (data) { showModal(uid, data); })
+          .catch(function () {});
+      }
+    };
+
+    es.onerror = function () {
+      if (dead) return;  // guard against Firefox firing onerror multiple times
+      dead = true;
+      setNFCState('', 'NFC nicht verbunden');
+      es.close();
+      setTimeout(connect, 5000);
+    };
+  }
+  connect();
+}());
+</script>
+</body>
+</html>
+{{end}}

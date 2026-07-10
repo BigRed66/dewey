@@ -1,0 +1,167 @@
+{{define "title"}}Ausleihen{{end}}
+{{define "content"}}
+<div class="page-header">
+  <div>
+    <h1>Ausleihen</h1>
+    <p class="subtitle">{{len .Loans}} Bücher zurzeit unterwegs</p>
+  </div>
+  <a href="/loans/checkout" class="btn btn-primary"><span>＋</span> Neue Ausleihe</a>
+</div>
+
+{{if .Error}}<div class="alert-error">{{.Error}}</div>{{end}}
+{{if .Success}}<div class="alert-success">{{.Success}}</div>{{end}}
+
+<div class="search-bar">
+  <span class="search-icon">⌕</span>
+  <input id="loans-search" type="text" placeholder="Suche nach Buch, Schüler, Klasse…">
+</div>
+
+<div class="card">
+  <div class="card-body" style="padding:20px 24px 4px;">
+    <h2>Aktive Ausleihen</h2>
+  </div>
+  <div class="tbl-head" style="grid-template-columns:2fr 1.3fr 0.9fr 1fr 1fr 1.2fr 0.9fr;">
+    <span>Buch</span><span>Schüler</span><span>Klasse</span><span>Ausgeliehen</span><span>Fällig</span><span>Status</span><span style="text-align:right;">Aktionen</span>
+  </div>
+  <div id="loans-body">
+    {{range .Loans}}
+    <div class="tbl-row" style="grid-template-columns:2fr 1.3fr 0.9fr 1fr 1fr 1.2fr 0.9fr; {{if .Overdue}}background:#FFF8F6;{{end}}">
+      <span style="font-weight:700;">{{.Book.Title}}</span>
+      <span>{{.Student.Name}}</span>
+      <span class="tbl-muted">Klasse {{.Student.Class.Year}}{{.Student.Class.Label}}</span>
+      <span class="tbl-muted">{{.BorrowedAt.Format "02.01.2006"}}</span>
+      <span class="tbl-muted" {{if .Overdue}}style="color:#B0492E;font-weight:600;"{{end}}>{{.DueAt.Format "02.01.2006"}}</span>
+      <span>
+        {{if .Overdue}}
+        <span class="pill pill-red">{{.DaysOverdue}} Tag{{if gt .DaysOverdue 1}}e{{end}} überfällig</span>
+        {{else}}
+        <span class="pill pill-green">{{.DaysLeft}} Tag{{if gt .DaysLeft 1}}e{{end}} übrig</span>
+        {{end}}
+        {{if .Reservations}}
+        <span class="pill pill-gray" title="Vorgemerkt von {{range $i, $r := .Reservations}}{{if $i}}, {{end}}{{$r.Student.Name}}{{end}}">{{len .Reservations}} Vormerkung{{if gt (len .Reservations) 1}}en{{end}}</span>
+        {{end}}
+      </span>
+      <span class="row-menu" onclick="event.stopPropagation()">
+        <button class="row-menu-btn" onclick="toggleRowMenu(this,event)">⋯</button>
+        <div class="row-menu-drop">
+          <button type="button" class="mitem-edit" onclick="openProlongModal({{.ID}}, '{{.Book.Title}}', {{if .ReservedByOther}}true{{else}}false{{end}})">Verlängern</button>
+          <button type="button" class="mitem-edit" onclick="openReserveModal({{.Book.ID}}, '{{.Book.Title}}', {{.ID}})">Vormerken</button>
+        </div>
+      </span>
+    </div>
+    <div id="reservations-{{.ID}}" style="display:none">
+      {{range .Reservations}}
+      <div style="display:flex; align-items:center; justify-content:space-between; font-size:13.5px; padding:5px 0;">
+        <span>{{.Student.Name}}</span>
+        <form method="POST" action="/reservations/{{.ID}}/cancel">
+          <input type="hidden" name="redirect" value="/loans">
+          <button type="submit" style="background:none; border:none; color:#B0492E; cursor:pointer; font-size:13px; padding:0;" title="Vormerkung stornieren">✕</button>
+        </form>
+      </div>
+      {{end}}
+    </div>
+    {{else}}
+    <div class="tbl-empty">Keine aktiven Ausleihen.</div>
+    {{end}}
+  </div>
+</div>
+
+<!-- ── Prolong modal ── -->
+<div id="prolong-modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(42,39,34,.45); z-index:1000; align-items:center; justify-content:center;">
+  <div style="width:400px; max-width:calc(100vw - 2rem); background:#FBF8F2; border-radius:18px; box-shadow:0 30px 70px -20px rgba(42,39,34,.5); border:1px solid #ECE4D6; padding:28px; position:relative;">
+    <button type="button" onclick="closeProlongModal()" style="position:absolute; top:18px; right:20px; background:none; border:none; cursor:pointer; font-size:20px; color:#B3A998; line-height:1;">✕</button>
+    <h3 id="prolong-modal-title" style="margin:0 0 20px; font-family:'Lora',serif; font-weight:600; font-size:20px; color:#2A2722;">Ausleihe verlängern</h3>
+
+    <div id="prolong-modal-blocked" style="display:none;">
+      <p style="font-size:14.5px; color:#B0492E; margin:0 0 20px;">Verlängerung nicht möglich: Ein anderer Schüler hat dieses Buch vorgemerkt.</p>
+      <button type="button" class="btn btn-secondary" onclick="closeProlongModal()">Schließen</button>
+    </div>
+
+    <form id="prolong-modal-form" method="POST">
+      <input type="hidden" name="redirect" value="/loans">
+      <div class="field" style="margin-bottom:20px;">
+        <label class="field-label" for="prolong-modal-date">Neues Rückgabedatum</label>
+        <input id="prolong-modal-date" name="due_date" type="date" required>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button type="submit" class="btn btn-primary">Verlängern</button>
+        <button type="button" class="btn btn-secondary" onclick="closeProlongModal()">Abbrechen</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Reserve modal ── -->
+<div id="reserve-modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(42,39,34,.45); z-index:1000; align-items:center; justify-content:center;">
+  <div style="width:420px; max-width:calc(100vw - 2rem); background:#FBF8F2; border-radius:18px; box-shadow:0 30px 70px -20px rgba(42,39,34,.5); border:1px solid #ECE4D6; padding:28px; position:relative;">
+    <button type="button" onclick="closeReserveModal()" style="position:absolute; top:18px; right:20px; background:none; border:none; cursor:pointer; font-size:20px; color:#B3A998; line-height:1;">✕</button>
+    <h3 id="reserve-modal-title" style="margin:0 0 20px; font-family:'Lora',serif; font-weight:600; font-size:20px; color:#2A2722;"></h3>
+
+    <form method="POST" action="/reservations" style="margin-bottom:8px;">
+      <input type="hidden" id="reserve-modal-book-id" name="book_id" value="">
+      <input type="hidden" name="redirect" value="/loans">
+      <div class="field" style="margin-bottom:14px;">
+        <label class="field-label" for="reserve-modal-student">Vormerken für</label>
+        <select id="reserve-modal-student" name="student_id" required>
+          <option value="">— Schüler wählen —</option>
+          {{range .Classes}}
+          {{$class := .}}
+          <optgroup label="Klasse {{.Year}}{{.Label}}">
+            {{range $.StudentsByClass}}
+            {{if eq .ClassID $class.ID}}
+            <option value="{{.ID}}">{{.Name}}</option>
+            {{end}}
+            {{end}}
+          </optgroup>
+          {{end}}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-secondary" style="width:100%;">Vormerken</button>
+    </form>
+
+    <div id="reserve-modal-waiting"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var input = document.getElementById('loans-search');
+  var rows  = document.querySelectorAll('#loans-body .tbl-row');
+  input.addEventListener('input', function () {
+    var q = this.value.toLowerCase();
+    rows.forEach(function (row) {
+      row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+
+  function defaultDueDate() {
+    var d = new Date();
+    d.setDate(d.getDate() + 14);
+    return d.toISOString().slice(0, 10);
+  }
+
+  window.openProlongModal = function (loanID, bookTitle, reservedByOther) {
+    document.getElementById('prolong-modal-title').textContent = 'Verlängern: ' + bookTitle;
+    document.getElementById('prolong-modal-form').action = '/loans/' + loanID + '/prolong';
+    document.getElementById('prolong-modal-date').value = defaultDueDate();
+    document.getElementById('prolong-modal-blocked').style.display = reservedByOther ? 'block' : 'none';
+    document.getElementById('prolong-modal-form').style.display = reservedByOther ? 'none' : 'block';
+    document.getElementById('prolong-modal-overlay').style.display = 'flex';
+  };
+  window.closeProlongModal = function () {
+    document.getElementById('prolong-modal-overlay').style.display = 'none';
+  };
+
+  window.openReserveModal = function (bookID, bookTitle, loanID) {
+    document.getElementById('reserve-modal-title').textContent = 'Vormerken: ' + bookTitle;
+    document.getElementById('reserve-modal-book-id').value = bookID;
+    var waiting = loanID ? document.getElementById('reservations-' + loanID) : null;
+    document.getElementById('reserve-modal-waiting').innerHTML = waiting ? waiting.innerHTML : '';
+    document.getElementById('reserve-modal-overlay').style.display = 'flex';
+  };
+  window.closeReserveModal = function () {
+    document.getElementById('reserve-modal-overlay').style.display = 'none';
+  };
+}());
+</script>
+{{end}}

@@ -1,0 +1,9 @@
+[build]
+  cmd = "go build -o ./tmp/dewey ."
+  bin = "./tmp/dewey"
+  include_ext = ["go", "html"]
+  exclude_dir = ["tmp"]
+  delay = 500
+
+[log]
+  time = false

@@ -1,0 +1,188 @@
+{{define "title"}}Einstellungen{{end}}
+{{define "content"}}
+<div style="margin-bottom:28px;">
+  <h1>Einstellungen</h1>
+  <p class="subtitle">Gerät und Dienste für diesen Arbeitsplatz.</p>
+</div>
+
+<!-- NFC-Gerät -->
+<div class="card">
+  <div class="card-body">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+      <h2>NFC-Gerät</h2>
+      {{if .NFCConnected}}
+      <span class="pill pill-green">Verbunden</span>
+      {{else if .NFCPort}}
+      <span class="pill pill-red">Nicht verbunden</span>
+      {{else}}
+      <span class="pill pill-gray">Deaktiviert</span>
+      {{end}}
+    </div>
+    <p style="color:#857B6E; font-size:15px; margin-bottom:20px;">Verbindet sich automatisch mit dem NFC-Leser am gewählten seriellen Port (ESP8266 + RC522).</p>
+
+    {{if .NFCError}}<div class="alert-error">{{.NFCError}}</div>{{end}}
+    {{if .NFCSuccess}}<div class="alert-success">{{.NFCSuccess}}</div>{{end}}
+
+    <form method="POST" action="/settings/nfc">
+      <div style="display:flex; gap:12px; align-items:flex-end; margin-bottom:20px;">
+        <div class="field" style="flex:1;">
+          <label class="field-label">Serieller Port</label>
+          <select name="port" id="nfc-port-select">
+            <option value="">— Kein Port —</option>
+            {{range .NFCPorts}}
+            <option value="{{.}}" {{if eq . $.NFCPort}}selected{{end}}>{{.}}</option>
+            {{end}}
+          </select>
+        </div>
+        <button type="button" class="btn btn-secondary" id="nfc-rescan-btn" onclick="rescanPorts(this)">Neu suchen</button>
+      </div>
+      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+        <button type="submit" class="btn btn-primary">Speichern</button>
+        <button type="button" class="btn btn-secondary" id="nfc-test-btn" onclick="testNFC(this)">Testen</button>
+        <span id="nfc-test-status" style="font-size:14.5px;"></span>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Google Books API -->
+<div class="card">
+  <div class="card-body">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+      <h2>Google Books API</h2>
+      {{if .APIKeySet}}
+      <span class="pill pill-green">Konfiguriert</span>
+      {{else}}
+      <span class="pill pill-gray">Nicht konfiguriert</span>
+      {{end}}
+    </div>
+    <p style="color:#857B6E; font-size:15px; margin-bottom:20px;">Ermöglicht die automatische Buchsuche per ISBN-Nummer beim Hinzufügen neuer Bücher.</p>
+
+    {{if .APIError}}<div class="alert-error">{{.APIError}}</div>{{end}}
+    {{if .APISuccess}}<div class="alert-success">{{.APISuccess}}</div>{{end}}
+
+    <form method="POST" action="/settings/api">
+      <div style="margin-bottom:20px;">
+        <div class="field">
+          <label class="field-label">API-Schlüssel</label>
+          <div style="position:relative;">
+            <input type="password" name="key" id="api-key-input"
+                   value="{{.APIKey}}"
+                   placeholder="{{if .APIKeySet}}Schlüssel gespeichert – neu eingeben zum Ändern{{else}}AIzaSy…{{end}}"
+                   autocomplete="new-password"
+                   style="padding-right:90px;
+                          -webkit-text-security:disc;
+                          /* suppress browser-native reveal button */
+                          ">
+            <style>
+              #api-key-input::-ms-reveal,
+              #api-key-input::-ms-clear { display: none; }
+              #api-key-input::-webkit-credentials-auto-fill-button,
+              #api-key-input::-webkit-strong-password-auto-fill-button { display: none !important; }
+            </style>
+            <button type="button" onclick="toggleKey(this)"
+                    style="position:absolute; right:10px; top:50%; transform:translateY(-50%);
+                           background:none; border:none; cursor:pointer;
+                           font-family:'Karla',sans-serif; font-size:13px; font-weight:600;
+                           color:#857B6E; padding:4px 8px; white-space:nowrap;">
+              Anzeigen
+            </button>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+        <button type="submit" class="btn btn-primary">Speichern</button>
+        <button type="button" class="btn btn-secondary" id="api-check-btn" onclick="checkAPI(this)">Prüfen</button>
+        <span id="api-check-status" style="font-size:14.5px;"></span>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function rescanPorts(btn) {
+  btn.disabled = true;
+  btn.textContent = 'Suche…';
+  fetch('/settings/nfc/ports')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var sel = document.getElementById('nfc-port-select');
+      var cur = sel.value;
+      sel.innerHTML = '<option value="">— Kein Port —</option>';
+      (data.ports || []).forEach(function(p) {
+        var opt = document.createElement('option');
+        opt.value = p; opt.textContent = p;
+        if (p === cur) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    })
+    .finally(function() {
+      btn.disabled = false;
+      btn.textContent = 'Neu suchen';
+    });
+}
+
+function testNFC(btn) {
+  var status = document.getElementById('nfc-test-status');
+  var port = document.getElementById('nfc-port-select').value;
+  btn.disabled = true;
+  btn.textContent = 'Teste…';
+  status.textContent = '';
+  fetch('/settings/nfc/test', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: 'port=' + encodeURIComponent(port)
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      status.style.color = d.ok ? '#3A5A40' : '#B0492E';
+      status.textContent = d.ok ? '✓ Port erreichbar' : '✗ ' + (d.error || 'Fehler');
+    })
+    .catch(function() {
+      status.style.color = '#B0492E';
+      status.textContent = '✗ Netzwerkfehler';
+    })
+    .finally(function() {
+      btn.disabled = false;
+      btn.textContent = 'Testen';
+    });
+}
+
+function toggleKey(btn) {
+  var input = document.getElementById('api-key-input');
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = 'Verbergen';
+  } else {
+    input.type = 'password';
+    btn.textContent = 'Anzeigen';
+  }
+}
+
+function checkAPI(btn) {
+  var status = document.getElementById('api-check-status');
+  var key = document.getElementById('api-key-input').value;
+  btn.disabled = true;
+  btn.textContent = 'Prüfe…';
+  status.textContent = '';
+  fetch('/settings/api/check', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: 'key=' + encodeURIComponent(key)
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      status.style.color = d.ok ? '#3A5A40' : '#B0492E';
+      status.textContent = d.ok ? '✓ Schlüssel gültig' : '✗ ' + (d.error || 'Ungültig');
+    })
+    .catch(function() {
+      status.style.color = '#B0492E';
+      status.textContent = '✗ Netzwerkfehler';
+    })
+    .finally(function() {
+      btn.disabled = false;
+      btn.textContent = 'Prüfen';
+    });
+}
+</script>
+{{end}}

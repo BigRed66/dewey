@@ -1,0 +1,12 @@
+tmp/
+/dewey
+firmware/.pio/
+dewey.db
+dewey.db-shm
+dewey.db-wal
+.env
+node_modules/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
