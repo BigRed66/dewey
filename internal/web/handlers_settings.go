@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -84,7 +85,11 @@ func (s *Server) handleSettingsNFCSave(w http.ResponseWriter, r *http.Request) {
 	var newReader *nfc.Reader
 	if port != "" {
 		newReader = nfc.New(port)
-		newReader.Start(s.ctx)
+		// context.Background() is fine here: Reader owns its lifecycle via
+		// Stop(), called both above (swapping readers) and during graceful
+		// app shutdown — it doesn't need to react to a request context or a
+		// long-lived context stored on Server.
+		newReader.Start(context.Background())
 	}
 	s.setNFC(newReader)
 

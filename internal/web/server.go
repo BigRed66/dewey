@@ -1,7 +1,6 @@
 package web
 
 import (
-	"context"
 	"net/http"
 	"sync"
 
@@ -13,7 +12,6 @@ import (
 
 type Server struct {
 	store *store.Store
-	ctx   context.Context // long-lived context for background goroutines
 	mu    sync.RWMutex
 	nfc   *nfc.Reader // nil wenn kein NFC-Reader konfiguriert; protected by mu
 }
@@ -30,8 +28,8 @@ func (s *Server) setNFC(r *nfc.Reader) {
 	s.mu.Unlock()
 }
 
-func NewServer(s *store.Store, ctx context.Context, nfcReader *nfc.Reader) http.Handler {
-	srv := &Server{store: s, ctx: ctx, nfc: nfcReader}
+func NewServer(s *store.Store, nfcReader *nfc.Reader) http.Handler {
+	srv := &Server{store: s, nfc: nfcReader}
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
