@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -23,12 +23,15 @@ func main() {
 	seedMock := flag.Bool("seed", os.Getenv("DEWEY_SEED") == "1", "seed the database with mock data on startup")
 	flag.Parse()
 
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	database, err := db.Open(*dbPath)
 	if err != nil {
-		log.Fatalf("open db: %v", err)
+		logger.Error("open db", "error", err)
+		os.Exit(1)
 	}
 	defer database.Close()
 
@@ -36,23 +39,24 @@ func main() {
 
 	if *seedMock {
 		if err := seed.Run(ctx, database); err != nil {
-			log.Fatalf("seed: %v", err)
+			logger.Error("seed", "error", err)
+			os.Exit(1)
 		}
-		log.Printf("info: Mockdaten eingespielt")
+		logger.Info("Mockdaten eingespielt")
 	}
 
 	// Load NFC port from settings
 	nfcPort, _ := s.GetSetting(ctx, "nfc_port")
 	var nfcReader *nfc.Reader
 	if nfcPort != "" {
-		nfcReader = nfc.New(nfcPort)
+		nfcReader = nfc.New(nfcPort, logger)
 		nfcReader.Start(ctx)
-		log.Printf("info: NFC-Reader gestartet auf %s", nfcPort)
+		logger.Info("NFC-Reader gestartet", "port", nfcPort)
 	} else {
-		log.Printf("info: NFC nicht konfiguriert – über Einstellungen einrichten")
+		logger.Info("NFC nicht konfiguriert – über Einstellungen einrichten")
 	}
 
-	handler := web.NewServer(s, nfcReader)
+	handler := web.NewServer(s, nfcReader, logger)
 
 	srv := &http.Server{
 		Addr:              *addr,
@@ -66,28 +70,29 @@ func main() {
 
 	serveErr := make(chan error, 1)
 	go func() {
-		log.Printf("listening on http://%s", *addr)
+		logger.Info("listening", "addr", *addr)
 		serveErr <- srv.ListenAndServe()
 	}()
 
 	select {
 	case err := <-serveErr:
 		if err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server: %v", err)
+			logger.Error("server", "error", err)
+			os.Exit(1)
 		}
 	case <-ctx.Done():
-		log.Printf("info: Beende Server …")
+		logger.Info("Beende Server …")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := srv.Shutdown(shutdownCtx); err != nil {
-			log.Printf("error: Server shutdown: %v", err)
+			logger.Error("Server shutdown", "error", err)
 		}
 	}
 
 	if nfcReader != nil {
 		nfcReader.Stop()
 	}
-	log.Printf("info: Server beendet")
+	logger.Info("Server beendet")
 }
 
 func envOr(key, def string) string {

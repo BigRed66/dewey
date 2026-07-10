@@ -2,7 +2,7 @@ package nfc
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -12,8 +12,9 @@ import (
 
 // Reader liest TAG:-Zeilen vom seriellen Port des ESP8266 und verteilt die UIDs.
 type Reader struct {
-	port string
-	baud int
+	port   string
+	baud   int
+	logger *slog.Logger
 
 	mu        sync.Mutex
 	subs      map[chan string]struct{}
@@ -24,10 +25,11 @@ type Reader struct {
 	cancel    context.CancelFunc
 }
 
-func New(port string) *Reader {
+func New(port string, logger *slog.Logger) *Reader {
 	return &Reader{
 		port:     port,
 		baud:     115200,
+		logger:   logger,
 		subs:     make(map[chan string]struct{}),
 		connSubs: make(map[chan bool]struct{}),
 	}
@@ -65,7 +67,7 @@ func (r *Reader) Port() string {
 func (r *Reader) run(ctx context.Context) {
 	for {
 		if err := r.readLoop(ctx); err != nil {
-			log.Printf("nfc: %v – erneuter Versuch in 5s", err)
+			r.logger.Warn("nfc read loop failed, retrying", "error", err, "retry_in", "5s")
 		}
 		select {
 		case <-ctx.Done():
@@ -91,7 +93,7 @@ func (r *Reader) readLoop(ctx context.Context) error {
 		return err
 	}
 
-	log.Printf("nfc: verbunden mit %s", port)
+	r.logger.Info("nfc connected", "port", port)
 	r.setConnected(true)
 	defer r.setConnected(false)
 
@@ -128,7 +130,7 @@ func (r *Reader) readLoop(ctx context.Context) error {
 				if uid == "" {
 					continue
 				}
-				log.Printf("nfc: tag gelesen: %s", uid)
+				r.logger.Info("nfc tag read", "uid", uid)
 				r.broadcast(uid)
 			default:
 				line = append(line, b)
