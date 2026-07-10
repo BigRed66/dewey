@@ -2,8 +2,11 @@ package db
 
 import (
 	"database/sql"
+	"strings"
 	"testing"
 )
+
+const latestMigrationVersion = 9
 
 func TestOpenFreshDatabase(t *testing.T) {
 	path := t.TempDir() + "/fresh.db"
@@ -13,7 +16,7 @@ func TestOpenFreshDatabase(t *testing.T) {
 	}
 	defer d.Close()
 
-	assertMigrationVersion(t, d, 2)
+	assertMigrationVersion(t, d, latestMigrationVersion)
 
 	hasCascade, err := bookPositionsHasCascade(d)
 	if err != nil {
@@ -26,9 +29,9 @@ func TestOpenFreshDatabase(t *testing.T) {
 
 // TestOpenLegacyDatabase simulates upgrading a database that was created by
 // the pre-migration code: tables exist (via CREATE TABLE IF NOT EXISTS) but
-// there's no schema_migrations bookkeeping, and book_positions predates the
+// there's no migration version recorded, and book_positions predates the
 // CASCADE fix. Open must recognize this, preserve existing rows, and bring
-// the db under migration tracking without re-running CREATE TABLE.
+// the db under migration tracking without erroring on CREATE TABLE.
 func TestOpenLegacyDatabase(t *testing.T) {
 	path := t.TempDir() + "/legacy.db"
 	seed, err := sql.Open("sqlite", path+"?_pragma=foreign_keys(1)")
@@ -65,7 +68,7 @@ func TestOpenLegacyDatabase(t *testing.T) {
 	}
 	defer d.Close()
 
-	assertMigrationVersion(t, d, 2)
+	assertMigrationVersion(t, d, latestMigrationVersion)
 
 	var title string
 	if err := d.QueryRow(`SELECT title FROM books WHERE id = 1`).Scan(&title); err != nil {
@@ -97,7 +100,7 @@ func TestOpenLegacyDatabase(t *testing.T) {
 		t.Fatalf("reopen legacy: %v", err)
 	}
 	defer d2.Close()
-	assertMigrationVersion(t, d2, 2)
+	assertMigrationVersion(t, d2, latestMigrationVersion)
 }
 
 func assertMigrationVersion(t *testing.T, d *sql.DB, want int) {
@@ -113,4 +116,25 @@ func assertMigrationVersion(t *testing.T, d *sql.DB, want int) {
 	if version != want {
 		t.Fatalf("expected migration version %d, got %d", want, version)
 	}
+}
+
+func bookPositionsHasCascade(db *sql.DB) (bool, error) {
+	rows, err := db.Query(`PRAGMA foreign_key_list(book_positions)`)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	var onDelete string
+	for rows.Next() {
+		var id, seq int
+		var table, from, to, onUpdate, match string
+		if err := rows.Scan(&id, &seq, &table, &from, &to, &onUpdate, &onDelete, &match); err != nil {
+			return false, err
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return false, err
+	}
+	return strings.EqualFold(onDelete, "CASCADE"), nil
 }

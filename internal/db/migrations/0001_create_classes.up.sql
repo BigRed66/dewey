@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS classes (
+	id      INTEGER PRIMARY KEY AUTOINCREMENT,
+	year    INTEGER NOT NULL CHECK(year BETWEEN 1 AND 4),
+	label   TEXT NOT NULL,
+	teacher TEXT NOT NULL,
+	UNIQUE(year, label)
+);
