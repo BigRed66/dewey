@@ -2,118 +2,20 @@ package db
 
 import (
 	"database/sql"
+	"embed"
+	"errors"
+	"fmt"
 	"strings"
 
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database"
+	migratesqlite "github.com/golang-migrate/migrate/v4/database/sqlite"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	_ "modernc.org/sqlite"
 )
 
-const schema = `
-PRAGMA journal_mode = WAL;
-
-CREATE TABLE IF NOT EXISTS classes (
-	id      INTEGER PRIMARY KEY AUTOINCREMENT,
-	year    INTEGER NOT NULL CHECK(year BETWEEN 1 AND 4),
-	label   TEXT NOT NULL,
-	teacher TEXT NOT NULL,
-	UNIQUE(year, label)
-);
-
-CREATE TABLE IF NOT EXISTS students (
-	id       INTEGER PRIMARY KEY AUTOINCREMENT,
-	name     TEXT NOT NULL,
-	class_id INTEGER NOT NULL REFERENCES classes(id)
-);
-
-CREATE TABLE IF NOT EXISTS books (
-	id             INTEGER PRIMARY KEY AUTOINCREMENT,
-	isbn           TEXT,
-	title          TEXT NOT NULL,
-	author         TEXT,
-	publisher      TEXT,
-	published_year INTEGER,
-	cover_url      TEXT,
-	category       TEXT,
-	reading_level  TEXT
-);
-
-CREATE TABLE IF NOT EXISTS copies (
-	id         INTEGER PRIMARY KEY AUTOINCREMENT,
-	book_id    INTEGER NOT NULL REFERENCES books(id),
-	nfc_tag_id TEXT NOT NULL UNIQUE
-);
-
-CREATE TABLE IF NOT EXISTS loans (
-	id          INTEGER PRIMARY KEY AUTOINCREMENT,
-	student_id  INTEGER NOT NULL REFERENCES students(id),
-	copy_id     INTEGER NOT NULL REFERENCES copies(id),
-	borrowed_at TEXT NOT NULL DEFAULT (datetime('now')),
-	due_at      TEXT NOT NULL,
-	returned_at TEXT
-);
-
-CREATE TABLE IF NOT EXISTS settings (
-	key   TEXT PRIMARY KEY,
-	value TEXT NOT NULL DEFAULT ''
-);
-
-CREATE TABLE IF NOT EXISTS reservations (
-	id           INTEGER PRIMARY KEY AUTOINCREMENT,
-	book_id      INTEGER NOT NULL REFERENCES books(id),
-	student_id   INTEGER NOT NULL REFERENCES students(id),
-	created_at   TEXT NOT NULL DEFAULT (datetime('now')),
-	cancelled_at TEXT
-);
-
-CREATE TABLE IF NOT EXISTS book_positions (
-	id      INTEGER PRIMARY KEY AUTOINCREMENT,
-	book_id INTEGER NOT NULL UNIQUE REFERENCES books(id) ON DELETE CASCADE,
-	row     TEXT,
-	column  TEXT
-);
-`
-
-// addCascadeToBookPositions rebuilds book_positions with ON DELETE CASCADE on
-// book_id for databases created before that constraint existed — CREATE TABLE
-// IF NOT EXISTS in schema only takes effect on fresh databases, and SQLite
-// can't ALTER an existing foreign key in place, so the table has to be
-// recreated (preserving any rows) instead.
-func addCascadeToBookPositions(db *sql.DB) error {
-	rows, err := db.Query(`PRAGMA foreign_key_list(book_positions)`)
-	if err != nil {
-		return err
-	}
-	var onDelete string
-	for rows.Next() {
-		var id, seq int
-		var table, from, to, onUpdate, match string
-		if err := rows.Scan(&id, &seq, &table, &from, &to, &onUpdate, &onDelete, &match); err != nil {
-			rows.Close()
-			return err
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return err
-	}
-	rows.Close()
-
-	if strings.EqualFold(onDelete, "CASCADE") {
-		return nil // fresh database already got it from schema, or no FK row found
-	}
-
-	_, err = db.Exec(`
-		ALTER TABLE book_positions RENAME TO book_positions_old;
-		CREATE TABLE book_positions (
-			id      INTEGER PRIMARY KEY AUTOINCREMENT,
-			book_id INTEGER NOT NULL UNIQUE REFERENCES books(id) ON DELETE CASCADE,
-			row     TEXT,
-			column  TEXT
-		);
-		INSERT INTO book_positions (id, book_id, row, column)
-			SELECT id, book_id, row, column FROM book_positions_old;
-		DROP TABLE book_positions_old;
-	`)
-	return err
-}
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
 
 func Open(path string) (*sql.DB, error) {
 	// _pragma=foreign_keys(1) applies to every pooled connection the driver
@@ -125,13 +27,94 @@ func Open(path string) (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, err := db.Exec(schema); err != nil {
+	if _, err := db.Exec(`PRAGMA journal_mode = WAL`); err != nil {
 		db.Close()
 		return nil, err
 	}
-	if err := addCascadeToBookPositions(db); err != nil {
+	if err := runMigrations(db); err != nil {
 		db.Close()
 		return nil, err
 	}
 	return db, nil
+}
+
+func runMigrations(db *sql.DB) error {
+	dbDriver, err := migratesqlite.WithInstance(db, &migratesqlite.Config{})
+	if err != nil {
+		return fmt.Errorf("init migration driver: %w", err)
+	}
+
+	if err := bootstrapLegacyDatabase(db, dbDriver); err != nil {
+		return fmt.Errorf("bootstrap legacy database: %w", err)
+	}
+
+	sourceDriver, err := iofs.New(migrationsFS, "migrations")
+	if err != nil {
+		return fmt.Errorf("init migration source: %w", err)
+	}
+
+	m, err := migrate.NewWithInstance("iofs", sourceDriver, "sqlite", dbDriver)
+	if err != nil {
+		return fmt.Errorf("init migrator: %w", err)
+	}
+
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return fmt.Errorf("apply migrations: %w", err)
+	}
+	return nil
+}
+
+// bootstrapLegacyDatabase handles databases created by the pre-migration
+// code (a const schema applied with CREATE TABLE IF NOT EXISTS, plus the
+// one-off addCascadeToBookPositions rebuild). Those databases have tables
+// but no migration version recorded, so migration 1 would otherwise try to
+// CREATE TABLE over data that already exists. Detect that case once and mark
+// the version it already satisfies as applied, without running any SQL.
+func bootstrapLegacyDatabase(db *sql.DB, dbDriver database.Driver) error {
+	version, _, err := dbDriver.Version()
+	if err != nil {
+		return err
+	}
+	if version != database.NilVersion {
+		return nil // already under migration tracking
+	}
+
+	var tableExists int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'classes'`).Scan(&tableExists); err != nil {
+		return err
+	}
+	if tableExists == 0 {
+		return nil // fresh database, nothing to bootstrap
+	}
+
+	legacyVersion := 1
+	hasCascade, err := bookPositionsHasCascade(db)
+	if err != nil {
+		return err
+	}
+	if hasCascade {
+		legacyVersion = 2
+	}
+	return dbDriver.SetVersion(legacyVersion, false)
+}
+
+func bookPositionsHasCascade(db *sql.DB) (bool, error) {
+	rows, err := db.Query(`PRAGMA foreign_key_list(book_positions)`)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	var onDelete string
+	for rows.Next() {
+		var id, seq int
+		var table, from, to, onUpdate, match string
+		if err := rows.Scan(&id, &seq, &table, &from, &to, &onUpdate, &onDelete, &match); err != nil {
+			return false, err
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return false, err
+	}
+	return strings.EqualFold(onDelete, "CASCADE"), nil
 }
