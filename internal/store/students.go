@@ -37,9 +37,16 @@ func (s *Store) ListStudents(ctx context.Context) ([]Student, error) {
 	return students, rows.Err()
 }
 
+// ListStudentsByClass returns the class's pupils with Class populated, the
+// same shape ListStudents returns — the students list renders .Class.Year and
+// .Class.Teacher for every row, filtered or not.
 func (s *Store) ListStudentsByClass(ctx context.Context, classID int64) ([]Student, error) {
-	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, name, class_id FROM students WHERE class_id = ? ORDER BY name`, classID)
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT s.id, s.name, s.class_id, c.year, c.label, c.teacher
+		FROM students s
+		JOIN classes c ON c.id = s.class_id
+		WHERE s.class_id = ?
+		ORDER BY s.name`, classID)
 	if err != nil {
 		return nil, err
 	}
@@ -48,9 +55,12 @@ func (s *Store) ListStudentsByClass(ctx context.Context, classID int64) ([]Stude
 	var students []Student
 	for rows.Next() {
 		var st Student
-		if err := rows.Scan(&st.ID, &st.Name, &st.ClassID); err != nil {
+		var c Class
+		if err := rows.Scan(&st.ID, &st.Name, &st.ClassID, &c.Year, &c.Label, &c.Teacher); err != nil {
 			return nil, err
 		}
+		c.ID = st.ClassID
+		st.Class = &c
 		students = append(students, st)
 	}
 	return students, rows.Err()
