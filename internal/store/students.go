@@ -16,8 +16,7 @@ func (s *Store) ListStudents(ctx context.Context) ([]Student, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT s.id, s.name, s.class_id, c.year, c.label, c.teacher
 		FROM students s
-		JOIN classes c ON c.id = s.class_id
-		ORDER BY c.year, c.label, s.name`)
+		JOIN classes c ON c.id = s.class_id`)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +33,11 @@ func (s *Store) ListStudents(ctx context.Context) ([]Student, error) {
 		st.Class = &c
 		students = append(students, st)
 	}
-	return students, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	sortStudents(students)
+	return students, nil
 }
 
 // ListStudentsByClass returns the class's pupils with Class populated, the
@@ -45,8 +48,7 @@ func (s *Store) ListStudentsByClass(ctx context.Context, classID int64) ([]Stude
 		SELECT s.id, s.name, s.class_id, c.year, c.label, c.teacher
 		FROM students s
 		JOIN classes c ON c.id = s.class_id
-		WHERE s.class_id = ?
-		ORDER BY s.name`, classID)
+		WHERE s.class_id = ?`, classID)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +65,11 @@ func (s *Store) ListStudentsByClass(ctx context.Context, classID int64) ([]Stude
 		st.Class = &c
 		students = append(students, st)
 	}
-	return students, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	sortStudents(students)
+	return students, nil
 }
 
 func (s *Store) CreateStudent(ctx context.Context, name string, classID int64) (Student, error) {
