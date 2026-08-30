@@ -1,5 +1,6 @@
 tmp/
 /dewey
+/dewey-darwin-*
 firmware/.pio/
 dewey.db
 dewey.db-shm
