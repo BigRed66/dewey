@@ -50,6 +50,9 @@ func NewServer(s *store.Store, nfcReader *nfc.Reader, logger *slog.Logger) http.
 	r.Post("/classes/{id}", srv.handleClassesUpdate)
 	r.Post("/classes/{id}/delete", srv.handleClassesDelete)
 
+	r.Get("/import", srv.handleImportForm)
+	r.Post("/import", srv.handleImportUpload)
+
 	r.Get("/students", srv.handleStudentsList)
 	r.Post("/students", srv.handleStudentsCreate)
 	r.Get("/students/{id}", srv.handleStudentDetail)

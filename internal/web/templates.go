@@ -13,11 +13,19 @@ var pages map[string]*template.Template
 
 var funcs = template.FuncMap{
 	"sub": func(a, b int) int { return a - b },
+	// plural picks the German singular or plural wording for a count, so
+	// summaries read "1 Klasse" rather than "1 Klassen".
+	"plural": func(n int, singular, plural string) string {
+		if n == 1 {
+			return singular
+		}
+		return plural
+	},
 }
 
 func init() {
 	pages = make(map[string]*template.Template)
-	for _, name := range []string{"classes", "students", "books", "books_new", "loans", "loans_checkout", "book_detail", "student_detail", "settings"} {
+	for _, name := range []string{"classes", "students", "books", "books_new", "loans", "loans_checkout", "book_detail", "student_detail", "settings", "import"} {
 		pages[name] = template.Must(template.New("").Funcs(funcs).ParseFS(templateFS,
 			"templates/layout.html",
 			"templates/"+name+".html",

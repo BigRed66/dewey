@@ -1,0 +1,87 @@
+{{define "title"}}Schüler importieren{{end}}
+{{define "content"}}
+<div style="margin-bottom:28px;">
+  <h1>Schüler importieren</h1>
+  <p class="subtitle">Klassen und Schüler aus einer CSV-Datei übernehmen</p>
+</div>
+
+{{if .Summary}}
+<div class="card">
+  <div class="card-body">
+    <div class="alert-success">
+      Import abgeschlossen: <strong>{{.Summary.StudentsCreated}}</strong> Schüler angelegt,
+      <strong>{{.Summary.ClassesCreated}}</strong> {{plural .Summary.ClassesCreated "Klasse" "Klassen"}} neu erstellt{{if .Summary.StudentsSkipped}},
+      <strong>{{.Summary.StudentsSkipped}}</strong> bereits vorhanden (übersprungen){{end}}.
+    </div>
+    {{if .Summary.ClassesCreated}}
+    <p style="font-size:14.5px; color:#6B6355; margin:0 0 18px;">
+      Neu erstellte Klassen haben als Lehrkraft «{{.TeacherPlaceholder}}» eingetragen —
+      bitte unter <a href="/classes">Klassen</a> ergänzen.
+    </p>
+    {{end}}
+    <div style="display:flex; gap:12px;">
+      <a href="/students" class="btn btn-primary">Zu den Schülern</a>
+      <a href="/import" class="btn btn-secondary">Weitere Datei importieren</a>
+    </div>
+  </div>
+</div>
+{{end}}
+
+{{if not .Summary}}
+<div class="card">
+  <div class="card-body">
+    {{if .Error}}<div class="alert-error">{{.Error}}</div>{{end}}
+
+    <form method="POST" action="/import" enctype="multipart/form-data">
+      <div class="field" style="margin-bottom:20px;">
+        <label class="field-label" for="file">CSV-Datei</label>
+        <input id="file" name="file" type="file" accept=".csv,.tsv,.txt,text/csv,text/plain" required
+               style="font-family:'Karla',sans-serif; font-size:14.5px;">
+      </div>
+      <button type="submit" class="btn btn-primary">Importieren</button>
+    </form>
+  </div>
+</div>
+{{end}}
+
+{{if .RowErrors}}
+<div class="card">
+  <div class="card-body" style="padding-bottom:6px;">
+    <h2 style="margin-bottom:6px;">Nicht übernommene Zeilen</h2>
+    <p class="subtitle" style="margin-bottom:0;">
+      {{len .RowErrors}} {{plural (len .RowErrors) "Zeile wurde" "Zeilen wurden"}} übersprungen.
+      Bitte in der Datei korrigieren und erneut importieren.
+    </p>
+  </div>
+  <div class="tbl-head" style="grid-template-columns:0.35fr 2fr;">
+    <span>Zeile</span><span>Grund</span>
+  </div>
+  {{range .RowErrors}}
+  <div class="tbl-row" style="grid-template-columns:0.35fr 2fr;">
+    <span style="font-weight:700;">{{.Line}}</span>
+    <span class="tbl-muted">{{.Message}}</span>
+  </div>
+  {{end}}
+</div>
+{{end}}
+
+<div class="card">
+  <div class="card-body">
+    <h2 style="margin-bottom:14px;">Erwartetes Format</h2>
+    <p style="font-size:14.5px; color:#6B6355; margin:0 0 16px;">
+      Die erste Zeile muss die Spaltennamen enthalten. Trennzeichen (Tabulator, Semikolon
+      oder Komma) werden automatisch erkannt.
+    </p>
+    <pre style="background:#FBF8F2; border:1px solid #ECE4D6; border-radius:10px; padding:14px 16px;
+                font-size:13.5px; color:#3D372E; overflow-x:auto; margin:0 0 16px;">Familienname;Vornamen;Klassenname
+Meier;Anna;1c
+Schulz;Ben Luca;2a</pre>
+    <ul style="font-size:14.5px; color:#6B6355; margin:0; padding-left:20px; line-height:1.7;">
+      <li><strong>Klassenname</strong> besteht aus Jahrgang und Buchstabe, z.&nbsp;B. «1c». Der Jahrgang muss zwischen 1 und 4 liegen.</li>
+      <li>Fehlende Klassen werden automatisch angelegt — mit «{{.TeacherPlaceholder}}» als Lehrkraft.</li>
+      <li>Schüler, die in ihrer Klasse bereits existieren, werden übersprungen.</li>
+      <li>Fehlerhafte Zeilen blockieren den Import nicht, sie werden einzeln aufgelistet.</li>
+    </ul>
+  </div>
+</div>
+{{end}}

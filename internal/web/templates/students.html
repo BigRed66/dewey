@@ -1,8 +1,11 @@
 {{define "title"}}Schüler{{end}}
 {{define "content"}}
-<div style="margin-bottom:28px;">
-  <h1>Schüler</h1>
-  <p class="subtitle">{{len .Students}} Schüler in {{len .Classes}} Klassen</p>
+<div style="margin-bottom:28px; display:flex; align-items:flex-start; justify-content:space-between; gap:16px;">
+  <div>
+    <h1>Schüler</h1>
+    <p class="subtitle">{{len .Students}} Schüler in {{len .Classes}} Klassen</p>
+  </div>
+  <a href="/import" class="btn btn-secondary" style="flex:none;">CSV-Import</a>
 </div>
 
 <div class="card">
