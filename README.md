@@ -117,4 +117,4 @@ e2e/                 Playwright tests
 
 ## Licence
 
-None specified — treat it as "do what you like with it, at your own risk".
+MIT — see [LICENSE](LICENSE). Use it, change it, ship it, at your own risk.
