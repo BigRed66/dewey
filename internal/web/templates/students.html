@@ -9,18 +9,14 @@
 </div>
 
 <div class="card">
-  {{if gt (len .Classes) 6}}
   <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 24px 14px;">
-    <div style="display:flex; align-items:center; gap:10px; flex:1; max-width:280px; padding:9px 14px; background:#FBF8F2; border:1px solid #ECE4D6; border-radius:11px;">
+    <div style="display:flex; align-items:center; gap:10px; flex:1; max-width:320px; padding:9px 14px; background:#FBF8F2; border:1px solid #ECE4D6; border-radius:11px;">
       <span style="font-size:15px; color:#B3A998;">⌕</span>
-      <input id="class-chip-search" type="text" placeholder="Klasse filtern…" style="border:none; background:none; padding:0; font-family:'Karla',sans-serif; font-size:14.5px; color:#3D372E; width:100%;">
+      <input id="student-search" type="text" placeholder="Schüler oder Klasse suchen…" autocomplete="off" style="border:none; background:none; padding:0; font-family:'Karla',sans-serif; font-size:14.5px; color:#3D372E; width:100%;">
     </div>
-    <span id="class-chip-count" style="font-family:'Karla',sans-serif; font-size:13.5px; color:#A89C8A; white-space:nowrap;">{{len .Classes}} Klassen · Filter: <span style="color:#3A5A40; font-weight:600;">Alle</span></span>
+    <span id="student-search-count" style="font-family:'Karla',sans-serif; font-size:13.5px; color:#A89C8A; white-space:nowrap;">{{len .Students}} Schüler</span>
   </div>
-  <div style="display:flex; flex-wrap:wrap; gap:8px; padding:0 24px 18px; max-height:120px; overflow-y:auto;" id="class-chip-rail">
-  {{else}}
-  <div class="filter-bar" id="class-chip-rail">
-  {{end}}
+  <div class="filter-bar" id="class-chip-rail" {{if gt (len .Classes) 6}}style="max-height:120px; overflow-y:auto;"{{end}}>
     <a href="/students" {{if eq .ClassID 0}}class="active"{{end}}>Alle</a>
     {{range .Classes}}
     <a href="/students?class={{.ID}}" {{if eq $.ClassID .ID}}class="active"{{end}} data-label="Klasse {{.Year}}{{.Label}}">Klasse {{.Year}}{{.Label}}</a>
@@ -30,7 +26,7 @@
     <span>Name</span><span>Klasse</span><span>Lehrkraft</span><span style="text-align:right;">Aktionen</span>
   </div>
   {{range .Students}}
-  <div class="tbl-row" style="grid-template-columns:1.6fr 1fr 1.4fr 0.95fr; cursor:pointer;" onclick="location.href='/students/{{.ID}}'">
+  <div class="tbl-row" data-name="{{.Name}}" data-class="Klasse {{.Class.Year}}{{.Class.Label}}" style="grid-template-columns:1.6fr 1fr 1.4fr 0.95fr; cursor:pointer;" onclick="location.href='/students/{{.ID}}'">
     <span style="font-weight:700;">{{.Name}}</span>
     <span>Klasse {{.Class.Year}}{{.Class.Label}}</span>
     <span class="tbl-muted">{{.Class.Teacher}}</span>
@@ -47,6 +43,7 @@
   {{else}}
   <div class="tbl-empty">Noch keine Schüler vorhanden.</div>
   {{end}}
+  <div class="tbl-empty" id="student-search-empty" style="display:none;">Keine Schüler gefunden.</div>
 </div>
 
 <div class="card">
@@ -74,21 +71,41 @@
   </div>
 </div>
 
-{{if gt (len .Classes) 6}}
 <script>
 (function () {
-  var search = document.getElementById('class-chip-search');
-  var rail   = document.getElementById('class-chip-rail');
-  var chips  = rail.querySelectorAll('a[data-label]');
-  search.addEventListener('input', function () {
-    var q = this.value.toLowerCase();
-    chips.forEach(function (chip) {
-      chip.style.display = chip.dataset.label.toLowerCase().includes(q) ? '' : 'none';
+  var input = document.getElementById('student-search');
+  if (!input) return;
+  var rows  = Array.prototype.slice.call(document.querySelectorAll('.tbl-row[data-name]'));
+  var count = document.getElementById('student-search-count');
+  var empty = document.getElementById('student-search-empty');
+  var total = rows.length;
+
+  // Fold umlauts the same way the pupil list is sorted (DIN 5007-1), so
+  // searching "Muller" or "Müller" both find Müller.
+  function fold(s) {
+    return s.toLowerCase()
+      .replace(/ä/g, 'a').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ß/g, 'ss');
+  }
+
+  var haystacks = rows.map(function (row) {
+    return fold(row.dataset.name + ' ' + row.dataset.class);
+  });
+
+  input.addEventListener('input', function () {
+    var q = fold(this.value.trim());
+    var shown = 0;
+    rows.forEach(function (row, i) {
+      var match = q === '' || haystacks[i].indexOf(q) !== -1;
+      row.style.display = match ? '' : 'none';
+      if (match) shown++;
     });
+    count.textContent = q === ''
+      ? total + ' Schüler'
+      : shown + ' von ' + total + ' Schülern';
+    empty.style.display = (shown === 0 && total > 0) ? '' : 'none';
   });
 }());
 </script>
-{{end}}
 
 {{if .EditStudent}}
 <div id="edit-student-overlay" style="display:flex; position:fixed; inset:0; background:rgba(42,39,34,.45); z-index:1000; align-items:center; justify-content:center;">
